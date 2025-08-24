@@ -583,6 +583,7 @@ dependencies = [
     { name = "peft" },
     { name = "protobuf" },
     { name = "psutil" },
+    { name = "py-libnuma" },
     { name = "pynvml" },
     { name = "pytest" },
     { name = "pyyaml" },
@@ -623,6 +624,7 @@ requires-dist = [
     { name = "peft", specifier = ">=0.7.0" },
     { name = "protobuf", specifier = ">=3.20.0" },
     { name = "psutil", specifier = ">=5.9.0" },
+    { name = "py-libnuma", specifier = ">=1.2" },
     { name = "pynvml", specifier = ">=11.5.0" },
     { name = "pytest", specifier = ">=8.4.1" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=7.4.0" },
@@ -1309,6 +1311,15 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/eb/a2/709e0fe2f093556c17fbafda93ac032257242cabcc7ff3369e2cb76a97aa/psutil-7.0.0-cp36-abi3-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:a5f098451abc2828f7dc6b58d44b532b22f2088f4999a937557b603ce72b1993", size = 279544 },
     { url = "https://files.pythonhosted.org/packages/50/e6/eecf58810b9d12e6427369784efe814a1eec0f492084ce8eb8f4d89d6d61/psutil-7.0.0-cp37-abi3-win32.whl", hash = "sha256:ba3fcef7523064a6c9da440fc4d6bd07da93ac726b5733c29027d7dc95b39d99", size = 241053 },
     { url = "https://files.pythonhosted.org/packages/50/1b/6921afe68c74868b4c9fa424dad3be35b095e16687989ebbb50ce4fceb7c/psutil-7.0.0-cp37-abi3-win_amd64.whl", hash = "sha256:4cf3d4eb1aa9b348dec30105c55cd9b7d4629285735a102beb4441e38db90553", size = 244885 },
+]
+
+[[package]]
+name = "py-libnuma"
+version = "1.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/7b/9c/e06382505da25f8e62e1234f1d76b4cf607e74275e6a48692014b6768324/py-libnuma-1.2.tar.gz", hash = "sha256:e9d67ad04f274015e9acac497d642ce92f8a96d1d4e7be24e39124b24320b95a", size = 6289 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/20/3e/e1f727f0ce0e26a0eac27fb5a6de043d41e04d76710063606a801b690c08/py_libnuma-1.2-py3-none-any.whl", hash = "sha256:a4c0b9188c03a1ba23b994e9c99f67ef25a090fadce90db94d46e229bd258fb9", size = 7652 },
 ]
 
 [[package]]
