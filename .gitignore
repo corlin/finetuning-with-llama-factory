@@ -337,3 +337,13 @@ Thumbs.db
 
 # Project specific ignores
 # Add any project-specific files or directories here
+
+simple_demo_output/
+
+test_logs/
+validation_output/
+
+wandb/
+demo_output/
+demo_splits/
+final_demo_output/

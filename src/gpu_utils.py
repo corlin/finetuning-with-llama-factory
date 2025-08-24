@@ -10,11 +10,20 @@ import logging
 import subprocess
 import platform
 import re
+import os
+import json
 from typing import Dict, List, Optional, Tuple, Set
 from dataclasses import dataclass, field
 from pathlib import Path
 from enum import Enum
 
+# 获取当前操作系统
+CURRENT_OS = platform.system()
+IS_WINDOWS = CURRENT_OS == "Windows"
+IS_LINUX = CURRENT_OS == "Linux"
+IS_MACOS = CURRENT_OS == "Darwin"
+
+# 尝试导入pynvml
 try:
     import pynvml
     PYNVML_AVAILABLE = True
@@ -26,8 +35,7 @@ except ImportError:
 NUMA_AVAILABLE = False
 LIBNUMA_AVAILABLE = False
 
-# 只在Linux系统上尝试导入numa库
-if platform.system() == "Linux":
+if IS_LINUX:
     try:
         import numa
         NUMA_AVAILABLE = True
@@ -35,14 +43,22 @@ if platform.system() == "Linux":
     except ImportError:
         pass
     except Exception as e:
-        # 处理其他导入错误（如库依赖问题）
         logging.debug(f"numa库导入失败: {e}")
 
-# 如果numa库不可用，记录警告（但这在Windows上是正常的）
-if not NUMA_AVAILABLE and platform.system() == "Linux":
+# Windows特定的导入
+WMI_AVAILABLE = False
+if IS_WINDOWS:
+    try:
+        import wmi
+        WMI_AVAILABLE = True
+    except ImportError:
+        logging.debug("WMI not available on Windows, some features will be limited")
+
+# 记录NUMA库状态
+if not NUMA_AVAILABLE and IS_LINUX:
     logging.warning("numa library not available on Linux, NUMA topology detection will be limited")
-elif not NUMA_AVAILABLE and platform.system() != "Linux":
-    logging.info("numa library not available on non-Linux system, this is expected")
+elif not NUMA_AVAILABLE and not IS_LINUX:
+    logging.debug("numa library not available on non-Linux system, this is expected")
 
 
 class InterconnectType(Enum):
@@ -242,6 +258,12 @@ class GPUDetector:
                     temp = pynvml.nvmlDeviceGetTemperature(handle, pynvml.NVML_TEMPERATURE_GPU)
                     power = pynvml.nvmlDeviceGetPowerUsage(handle) // 1000  # mW to W
                     
+                    # 获取更准确的内存信息
+                    mem_info = pynvml.nvmlDeviceGetMemoryInfo(handle)
+                    gpu_info.total_memory = mem_info.total // (1024**2)  # 转换为MB
+                    gpu_info.used_memory = mem_info.used // (1024**2)   # 转换为MB
+                    gpu_info.free_memory = mem_info.free // (1024**2)   # 转换为MB
+                    
                     # 获取PCI总线ID
                     pci_info = pynvml.nvmlDeviceGetPciInfo(handle)
                     if hasattr(pci_info.busId, 'decode'):
@@ -265,16 +287,337 @@ class GPUDetector:
             return None
     
     def get_all_gpu_info(self) -> List[GPUInfo]:
-        """获取所有GPU信息"""
+        """获取所有GPU信息，支持跨平台检测"""
         gpu_infos = []
-        if not torch.cuda.is_available():
-            return gpu_infos
         
-        device_count = torch.cuda.device_count()
-        for i in range(device_count):
-            gpu_info = self.get_gpu_info(i)
-            if gpu_info:
-                gpu_infos.append(gpu_info)
+        # 首先尝试PyTorch CUDA检测
+        if torch.cuda.is_available():
+            device_count = torch.cuda.device_count()
+            for i in range(device_count):
+                gpu_info = self.get_gpu_info(i)
+                if gpu_info:
+                    gpu_infos.append(gpu_info)
+        
+        # 如果PyTorch没有检测到GPU，尝试其他方法
+        if not gpu_infos:
+            gpu_infos = self._fallback_gpu_detection()
+        
+        return gpu_infos
+    
+    def _fallback_gpu_detection(self) -> List[GPUInfo]:
+        """备用GPU检测方法，支持多平台"""
+        gpu_infos = []
+        
+        try:
+            if IS_WINDOWS:
+                gpu_infos = self._detect_gpus_windows()
+            elif IS_LINUX:
+                gpu_infos = self._detect_gpus_linux()
+            elif IS_MACOS:
+                gpu_infos = self._detect_gpus_macos()
+        except Exception as e:
+            self.logger.debug(f"备用GPU检测失败: {e}")
+        
+        return gpu_infos
+    
+    def _detect_gpus_windows(self) -> List[GPUInfo]:
+        """Windows平台GPU检测"""
+        gpu_infos = []
+        
+        try:
+            # 方法1: 使用WMI
+            if WMI_AVAILABLE:
+                gpu_infos.extend(self._detect_gpus_wmi())
+            
+            # 方法2: 使用nvidia-smi命令
+            if not gpu_infos:
+                gpu_infos.extend(self._detect_gpus_nvidia_smi())
+            
+            # 方法3: 使用WMIC命令
+            if not gpu_infos:
+                gpu_infos.extend(self._detect_gpus_wmic())
+                
+        except Exception as e:
+            self.logger.debug(f"Windows GPU检测失败: {e}")
+        
+        return gpu_infos
+    
+    def _detect_gpus_linux(self) -> List[GPUInfo]:
+        """Linux平台GPU检测"""
+        gpu_infos = []
+        
+        try:
+            # 方法1: 使用nvidia-smi命令
+            gpu_infos.extend(self._detect_gpus_nvidia_smi())
+            
+            # 方法2: 读取/proc/driver/nvidia/gpus/
+            if not gpu_infos:
+                gpu_infos.extend(self._detect_gpus_proc_nvidia())
+            
+            # 方法3: 使用lspci命令
+            if not gpu_infos:
+                gpu_infos.extend(self._detect_gpus_lspci())
+                
+        except Exception as e:
+            self.logger.debug(f"Linux GPU检测失败: {e}")
+        
+        return gpu_infos
+    
+    def _detect_gpus_macos(self) -> List[GPUInfo]:
+        """macOS平台GPU检测"""
+        gpu_infos = []
+        
+        try:
+            # 方法1: 使用system_profiler命令
+            gpu_infos.extend(self._detect_gpus_system_profiler())
+            
+            # 方法2: 使用nvidia-smi（如果安装了NVIDIA GPU）
+            if not gpu_infos:
+                gpu_infos.extend(self._detect_gpus_nvidia_smi())
+                
+        except Exception as e:
+            self.logger.debug(f"macOS GPU检测失败: {e}")
+        
+        return gpu_infos
+    
+    def _detect_gpus_wmi(self) -> List[GPUInfo]:
+        """使用WMI检测Windows GPU"""
+        gpu_infos = []
+        
+        try:
+            if not WMI_AVAILABLE:
+                return gpu_infos
+            
+            c = wmi.WMI()
+            for i, gpu in enumerate(c.Win32_VideoController()):
+                if gpu.Name and 'NVIDIA' in gpu.Name.upper():
+                    # 尝试获取内存信息
+                    memory_mb = 0
+                    if gpu.AdapterRAM:
+                        memory_mb = int(gpu.AdapterRAM) // (1024 * 1024)
+                    
+                    gpu_info = GPUInfo(
+                        gpu_id=i,
+                        name=gpu.Name,
+                        total_memory=memory_mb,
+                        free_memory=memory_mb,  # WMI无法直接获取空闲内存
+                        used_memory=0,
+                        utilization=0.0,
+                        pci_bus_id=gpu.PNPDeviceID if gpu.PNPDeviceID else None
+                    )
+                    gpu_infos.append(gpu_info)
+                    
+        except Exception as e:
+            self.logger.debug(f"WMI GPU检测失败: {e}")
+        
+        return gpu_infos
+    
+    def _detect_gpus_nvidia_smi(self) -> List[GPUInfo]:
+        """使用nvidia-smi命令检测GPU"""
+        gpu_infos = []
+        
+        try:
+            # 尝试运行nvidia-smi命令
+            cmd = ["nvidia-smi", "--query-gpu=index,name,memory.total,memory.free,memory.used,utilization.gpu,temperature.gpu,power.draw,pci.bus_id", "--format=csv,noheader,nounits"]
+            
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+            
+            if result.returncode == 0:
+                lines = result.stdout.strip().split('\n')
+                for line in lines:
+                    if line.strip():
+                        parts = [p.strip() for p in line.split(',')]
+                        if len(parts) >= 6:
+                            try:
+                                gpu_info = GPUInfo(
+                                    gpu_id=int(parts[0]),
+                                    name=parts[1],
+                                    total_memory=int(parts[2]) if parts[2] != '[Not Supported]' else 0,
+                                    free_memory=int(parts[3]) if parts[3] != '[Not Supported]' else 0,
+                                    used_memory=int(parts[4]) if parts[4] != '[Not Supported]' else 0,
+                                    utilization=float(parts[5]) if parts[5] != '[Not Supported]' else 0.0,
+                                    temperature=int(parts[6]) if len(parts) > 6 and parts[6] != '[Not Supported]' else None,
+                                    power_usage=int(float(parts[7])) if len(parts) > 7 and parts[7] != '[Not Supported]' else None,
+                                    pci_bus_id=parts[8] if len(parts) > 8 else None
+                                )
+                                gpu_infos.append(gpu_info)
+                            except (ValueError, IndexError) as e:
+                                self.logger.debug(f"解析nvidia-smi输出失败: {e}")
+                                
+        except (subprocess.TimeoutExpired, subprocess.CalledProcessError, FileNotFoundError) as e:
+            self.logger.debug(f"nvidia-smi命令执行失败: {e}")
+        
+        return gpu_infos
+    
+    def _detect_gpus_wmic(self) -> List[GPUInfo]:
+        """使用WMIC命令检测Windows GPU"""
+        gpu_infos = []
+        
+        try:
+            cmd = ["wmic", "path", "win32_VideoController", "get", "Name,AdapterRAM,PNPDeviceID", "/format:csv"]
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+            
+            if result.returncode == 0:
+                lines = result.stdout.strip().split('\n')[1:]  # 跳过标题行
+                gpu_id = 0
+                for line in lines:
+                    if line.strip():
+                        parts = [p.strip() for p in line.split(',')]
+                        if len(parts) >= 3 and parts[2]:  # 确保有名称
+                            name = parts[2]
+                            if 'NVIDIA' in name.upper():
+                                memory_mb = 0
+                                if parts[1] and parts[1] != '':
+                                    try:
+                                        memory_mb = int(parts[1]) // (1024 * 1024)
+                                    except ValueError:
+                                        pass
+                                
+                                gpu_info = GPUInfo(
+                                    gpu_id=gpu_id,
+                                    name=name,
+                                    total_memory=memory_mb,
+                                    free_memory=memory_mb,
+                                    used_memory=0,
+                                    utilization=0.0,
+                                    pci_bus_id=parts[3] if len(parts) > 3 else None
+                                )
+                                gpu_infos.append(gpu_info)
+                                gpu_id += 1
+                                
+        except (subprocess.TimeoutExpired, subprocess.CalledProcessError, FileNotFoundError) as e:
+            self.logger.debug(f"WMIC命令执行失败: {e}")
+        
+        return gpu_infos
+    
+    def _detect_gpus_proc_nvidia(self) -> List[GPUInfo]:
+        """通过/proc/driver/nvidia/gpus/检测Linux GPU"""
+        gpu_infos = []
+        
+        try:
+            nvidia_proc_path = Path("/proc/driver/nvidia/gpus")
+            if nvidia_proc_path.exists():
+                gpu_dirs = [d for d in nvidia_proc_path.iterdir() if d.is_dir()]
+                
+                for i, gpu_dir in enumerate(sorted(gpu_dirs)):
+                    try:
+                        # 读取GPU信息文件
+                        info_file = gpu_dir / "information"
+                        if info_file.exists():
+                            with open(info_file, 'r') as f:
+                                content = f.read()
+                                
+                            # 解析GPU名称
+                            name_match = re.search(r'Model:\s+(.+)', content)
+                            name = name_match.group(1).strip() if name_match else f"NVIDIA GPU {i}"
+                            
+                            # 解析PCI总线ID
+                            pci_match = re.search(r'Bus Location:\s+(.+)', content)
+                            pci_bus_id = pci_match.group(1).strip() if pci_match else None
+                            
+                            gpu_info = GPUInfo(
+                                gpu_id=i,
+                                name=name,
+                                total_memory=0,  # 无法从proc获取内存信息
+                                free_memory=0,
+                                used_memory=0,
+                                utilization=0.0,
+                                pci_bus_id=pci_bus_id
+                            )
+                            gpu_infos.append(gpu_info)
+                            
+                    except Exception as e:
+                        self.logger.debug(f"读取GPU {i}信息失败: {e}")
+                        
+        except Exception as e:
+            self.logger.debug(f"proc nvidia检测失败: {e}")
+        
+        return gpu_infos
+    
+    def _detect_gpus_lspci(self) -> List[GPUInfo]:
+        """使用lspci命令检测Linux GPU"""
+        gpu_infos = []
+        
+        try:
+            cmd = ["lspci", "-nn"]
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+            
+            if result.returncode == 0:
+                lines = result.stdout.strip().split('\n')
+                gpu_id = 0
+                
+                for line in lines:
+                    if 'VGA compatible controller' in line and 'NVIDIA' in line.upper():
+                        # 解析PCI总线ID和GPU名称
+                        parts = line.split(' ', 1)
+                        pci_bus_id = parts[0] if parts else None
+                        
+                        # 提取GPU名称
+                        name_match = re.search(r'NVIDIA[^[]*', line)
+                        name = name_match.group(0).strip() if name_match else f"NVIDIA GPU {gpu_id}"
+                        
+                        gpu_info = GPUInfo(
+                            gpu_id=gpu_id,
+                            name=name,
+                            total_memory=0,  # lspci无法获取内存信息
+                            free_memory=0,
+                            used_memory=0,
+                            utilization=0.0,
+                            pci_bus_id=pci_bus_id
+                        )
+                        gpu_infos.append(gpu_info)
+                        gpu_id += 1
+                        
+        except (subprocess.TimeoutExpired, subprocess.CalledProcessError, FileNotFoundError) as e:
+            self.logger.debug(f"lspci命令执行失败: {e}")
+        
+        return gpu_infos
+    
+    def _detect_gpus_system_profiler(self) -> List[GPUInfo]:
+        """使用system_profiler命令检测macOS GPU"""
+        gpu_infos = []
+        
+        try:
+            cmd = ["system_profiler", "SPDisplaysDataType", "-json"]
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
+            
+            if result.returncode == 0:
+                data = json.loads(result.stdout)
+                displays = data.get('SPDisplaysDataType', [])
+                
+                gpu_id = 0
+                for display in displays:
+                    name = display.get('sppci_model', 'Unknown GPU')
+                    if 'NVIDIA' in name.upper() or 'GeForce' in name.upper() or 'Quadro' in name.upper():
+                        # 尝试获取VRAM信息
+                        vram_str = display.get('sppci_vram', '0 MB')
+                        memory_mb = 0
+                        if 'MB' in vram_str:
+                            try:
+                                memory_mb = int(re.search(r'(\d+)', vram_str).group(1))
+                            except:
+                                pass
+                        elif 'GB' in vram_str:
+                            try:
+                                memory_gb = float(re.search(r'(\d+(?:\.\d+)?)', vram_str).group(1))
+                                memory_mb = int(memory_gb * 1024)
+                            except:
+                                pass
+                        
+                        gpu_info = GPUInfo(
+                            gpu_id=gpu_id,
+                            name=name,
+                            total_memory=memory_mb,
+                            free_memory=memory_mb,
+                            used_memory=0,
+                            utilization=0.0,
+                            pci_bus_id=display.get('sppci_bus', None)
+                        )
+                        gpu_infos.append(gpu_info)
+                        gpu_id += 1
+                        
+        except (subprocess.TimeoutExpired, subprocess.CalledProcessError, FileNotFoundError, json.JSONDecodeError) as e:
+            self.logger.debug(f"system_profiler命令执行失败: {e}")
         
         return gpu_infos
     
@@ -436,34 +779,32 @@ class GPUDetector:
         return "\n".join(report_lines)
     
     def _get_gpu_numa_node(self, gpu_id: int) -> Optional[int]:
-        """获取GPU所在的NUMA节点，支持多种检测方法"""
+        """获取GPU所在的NUMA节点，支持多平台检测"""
         try:
-            if platform.system() != "Linux":
+            if IS_LINUX:
+                return self._get_gpu_numa_node_linux(gpu_id)
+            elif IS_WINDOWS:
+                return self._get_gpu_numa_node_windows(gpu_id)
+            else:
                 return None
             
+        except Exception as e:
+            self.logger.debug(f"获取GPU NUMA节点失败: {e}")
+            return None
+    
+    def _get_gpu_numa_node_linux(self, gpu_id: int) -> Optional[int]:
+        """Linux平台获取GPU NUMA节点"""
+        try:
             # 方法1: 使用numa库
             if NUMA_AVAILABLE:
                 try:
-                    # 获取当前进程的NUMA节点
                     current_node = numa.get_mempolicy()[1]
                     if current_node is not None and len(current_node) > 0:
                         return list(current_node)[0]
                 except Exception as e:
                     self.logger.debug(f"numa库检测失败: {e}")
             
-            # 方法2: 使用numa库的其他功能
-            if NUMA_AVAILABLE:
-                try:
-                    # 尝试获取NUMA节点信息
-                    from numa import info
-                    numa_nodes = info.numa_hardware_info()
-                    if numa_nodes:
-                        # 简化处理：根据GPU ID分配NUMA节点
-                        return gpu_id % len(numa_nodes.get('nodes', [0]))
-                except Exception as e:
-                    self.logger.debug(f"numa info检测失败: {e}")
-            
-            # 方法3: 通过nvidia-ml-py获取PCI总线ID并查询sysfs
+            # 方法2: 通过nvidia-ml-py获取PCI总线ID并查询sysfs
             if PYNVML_AVAILABLE:
                 handle = pynvml.nvmlDeviceGetHandleByIndex(gpu_id)
                 pci_info = pynvml.nvmlDeviceGetPciInfo(handle)
@@ -488,15 +829,59 @@ class GPUDetector:
                         except (ValueError, IOError):
                             continue
             
-            # 方法4: 通过/proc/cpuinfo和GPU亲和性推断
-            return self._infer_numa_from_cpu_affinity(gpu_id)
+            # 方法3: 通过/proc/cpuinfo和GPU亲和性推断
+            return self._infer_numa_from_cpu_affinity_linux(gpu_id)
             
         except Exception as e:
-            self.logger.debug(f"获取GPU NUMA节点失败: {e}")
+            self.logger.debug(f"Linux GPU NUMA节点检测失败: {e}")
             return None
     
-    def _infer_numa_from_cpu_affinity(self, gpu_id: int) -> Optional[int]:
-        """通过CPU亲和性推断NUMA节点"""
+    def _get_gpu_numa_node_windows(self, gpu_id: int) -> Optional[int]:
+        """Windows平台获取GPU NUMA节点"""
+        try:
+            # 方法1: 使用WMI查询NUMA信息
+            if WMI_AVAILABLE:
+                try:
+                    c = wmi.WMI()
+                    # 查询NUMA节点信息
+                    numa_nodes = c.Win32_NumaNode()
+                    if numa_nodes:
+                        # 简化处理：根据GPU ID分配NUMA节点
+                        return gpu_id % len(numa_nodes)
+                except Exception as e:
+                    self.logger.debug(f"WMI NUMA检测失败: {e}")
+            
+            # 方法2: 使用PowerShell命令查询
+            try:
+                cmd = ["powershell", "-Command", "Get-WmiObject -Class Win32_NumaNode | Select-Object NodeId"]
+                result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+                
+                if result.returncode == 0:
+                    lines = result.stdout.strip().split('\n')[2:]  # 跳过标题行
+                    numa_nodes = []
+                    for line in lines:
+                        if line.strip().isdigit():
+                            numa_nodes.append(int(line.strip()))
+                    
+                    if numa_nodes:
+                        return gpu_id % len(numa_nodes)
+                        
+            except Exception as e:
+                self.logger.debug(f"PowerShell NUMA检测失败: {e}")
+            
+            # 方法3: 通过CPU核心数推断
+            cpu_count = psutil.cpu_count(logical=False)
+            if cpu_count and cpu_count > 8:  # 假设超过8核心可能有多个NUMA节点
+                return gpu_id % 2  # 简化为2个NUMA节点
+            
+            return 0  # 默认返回节点0
+            
+        except Exception as e:
+            self.logger.debug(f"Windows GPU NUMA节点检测失败: {e}")
+            return None
+    
+    def _infer_numa_from_cpu_affinity_linux(self, gpu_id: int) -> Optional[int]:
+        """通过CPU亲和性推断NUMA节点（Linux）"""
         try:
             # 检查/proc/cpuinfo获取NUMA信息
             numa_nodes = set()
@@ -514,14 +899,32 @@ class GPUDetector:
             return None
     
     def get_numa_topology_info(self) -> Dict[str, any]:
-        """获取系统NUMA拓扑信息"""
+        """获取系统NUMA拓扑信息，支持多平台"""
         numa_info = {
-            "numa_available": NUMA_AVAILABLE or LIBNUMA_AVAILABLE,
+            "numa_available": NUMA_AVAILABLE or LIBNUMA_AVAILABLE or WMI_AVAILABLE,
             "numa_nodes": [],
             "memory_per_node": {},
             "cpu_per_node": {},
-            "distances": {}
+            "distances": {},
+            "platform": CURRENT_OS
         }
+        
+        try:
+            if IS_LINUX:
+                numa_info.update(self._get_numa_topology_linux())
+            elif IS_WINDOWS:
+                numa_info.update(self._get_numa_topology_windows())
+            elif IS_MACOS:
+                numa_info.update(self._get_numa_topology_macos())
+                
+        except Exception as e:
+            self.logger.debug(f"获取NUMA拓扑信息失败: {e}")
+        
+        return numa_info
+    
+    def _get_numa_topology_linux(self) -> Dict[str, any]:
+        """获取Linux NUMA拓扑信息"""
+        numa_info = {}
         
         try:
             if NUMA_AVAILABLE:
@@ -533,26 +936,8 @@ class GPUDetector:
                 except Exception as e:
                     self.logger.debug(f"numa库获取拓扑信息失败: {e}")
             
-            elif NUMA_AVAILABLE:
-                # 使用numa库的info模块获取信息
-                try:
-                    from numa import info
-                    hardware_info = info.numa_hardware_info()
-                    if hardware_info and 'nodes' in hardware_info:
-                        numa_info["numa_nodes"] = list(hardware_info['nodes'].keys())
-                        for node_id in numa_info["numa_nodes"]:
-                            # 尝试获取内存信息
-                            try:
-                                from numa import memory
-                                # 这里简化处理，实际可能需要更复杂的逻辑
-                                numa_info["memory_per_node"][node_id] = "未知"
-                            except Exception:
-                                pass
-                except Exception as e:
-                    self.logger.debug(f"numa info获取拓扑信息失败: {e}")
-            
-            else:
-                # 从/sys/devices/system/node/读取NUMA信息
+            # 从/sys/devices/system/node/读取NUMA信息
+            if not numa_info.get("numa_nodes"):
                 node_path = Path("/sys/devices/system/node")
                 if node_path.exists():
                     numa_dirs = [d for d in node_path.iterdir() 
@@ -574,7 +959,110 @@ class GPUDetector:
                                 pass
         
         except Exception as e:
-            self.logger.debug(f"获取NUMA拓扑信息失败: {e}")
+            self.logger.debug(f"Linux NUMA拓扑信息获取失败: {e}")
+        
+        return numa_info
+    
+    def _get_numa_topology_windows(self) -> Dict[str, any]:
+        """获取Windows NUMA拓扑信息"""
+        numa_info = {}
+        
+        try:
+            # 方法1: 使用WMI
+            if WMI_AVAILABLE:
+                try:
+                    c = wmi.WMI()
+                    numa_nodes = c.Win32_NumaNode()
+                    
+                    if numa_nodes:
+                        numa_info["numa_nodes"] = [node.NodeId for node in numa_nodes]
+                        
+                        # 获取每个NUMA节点的内存信息
+                        for node in numa_nodes:
+                            try:
+                                # 查询该NUMA节点的内存
+                                memory_query = f"SELECT * FROM Win32_PhysicalMemory WHERE PositionInRow = {node.NodeId}"
+                                memory_modules = c.query(memory_query)
+                                total_memory = sum(int(mem.Capacity) for mem in memory_modules if mem.Capacity)
+                                numa_info["memory_per_node"][node.NodeId] = total_memory
+                            except Exception:
+                                numa_info["memory_per_node"][node.NodeId] = 0
+                                
+                except Exception as e:
+                    self.logger.debug(f"WMI NUMA信息获取失败: {e}")
+            
+            # 方法2: 使用PowerShell命令
+            if not numa_info.get("numa_nodes"):
+                try:
+                    cmd = ["powershell", "-Command", 
+                          "Get-WmiObject -Class Win32_NumaNode | Select-Object NodeId, @{Name='Memory';Expression={(Get-WmiObject -Class Win32_PhysicalMemory | Where-Object {$_.PositionInRow -eq $_.NodeId} | Measure-Object -Property Capacity -Sum).Sum}}"]
+                    
+                    result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
+                    
+                    if result.returncode == 0:
+                        lines = result.stdout.strip().split('\n')[2:]  # 跳过标题行
+                        for line in lines:
+                            if line.strip():
+                                parts = line.strip().split()
+                                if len(parts) >= 2:
+                                    try:
+                                        node_id = int(parts[0])
+                                        memory = int(parts[1]) if parts[1].isdigit() else 0
+                                        numa_info.setdefault("numa_nodes", []).append(node_id)
+                                        numa_info.setdefault("memory_per_node", {})[node_id] = memory
+                                    except ValueError:
+                                        pass
+                                        
+                except Exception as e:
+                    self.logger.debug(f"PowerShell NUMA信息获取失败: {e}")
+            
+            # 方法3: 简化推断
+            if not numa_info.get("numa_nodes"):
+                cpu_count = psutil.cpu_count(logical=False)
+                if cpu_count and cpu_count > 8:
+                    # 假设超过8核心的系统可能有多个NUMA节点
+                    numa_info["numa_nodes"] = [0, 1]
+                    total_memory = psutil.virtual_memory().total
+                    numa_info["memory_per_node"] = {0: total_memory // 2, 1: total_memory // 2}
+                else:
+                    numa_info["numa_nodes"] = [0]
+                    numa_info["memory_per_node"] = {0: psutil.virtual_memory().total}
+        
+        except Exception as e:
+            self.logger.debug(f"Windows NUMA拓扑信息获取失败: {e}")
+        
+        return numa_info
+    
+    def _get_numa_topology_macos(self) -> Dict[str, any]:
+        """获取macOS NUMA拓扑信息"""
+        numa_info = {}
+        
+        try:
+            # macOS通常不支持NUMA，但我们可以提供基本信息
+            numa_info["numa_nodes"] = [0]  # 单一节点
+            numa_info["memory_per_node"] = {0: psutil.virtual_memory().total}
+            
+            # 尝试使用system_profiler获取更详细的硬件信息
+            try:
+                cmd = ["system_profiler", "SPHardwareDataType", "-json"]
+                result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+                
+                if result.returncode == 0:
+                    data = json.loads(result.stdout)
+                    hardware = data.get('SPHardwareDataType', [])
+                    if hardware:
+                        memory_str = hardware[0].get('physical_memory', '0 GB')
+                        # 解析内存大小
+                        memory_match = re.search(r'(\d+(?:\.\d+)?)\s*GB', memory_str)
+                        if memory_match:
+                            memory_gb = float(memory_match.group(1))
+                            numa_info["memory_per_node"][0] = int(memory_gb * 1024 * 1024 * 1024)
+                            
+            except Exception as e:
+                self.logger.debug(f"macOS硬件信息获取失败: {e}")
+        
+        except Exception as e:
+            self.logger.debug(f"macOS NUMA拓扑信息获取失败: {e}")
         
         return numa_info
     

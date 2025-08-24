@@ -176,21 +176,45 @@ class TrainingMonitor:
     def monitor_load_balance(self, gpu_workloads: Dict[int, float]) -> LoadBalanceMetrics
 ```
 
-### 6. 专家评估模块 (ExpertEvaluator)
+### 6. 多层次专业评估模块 (ComprehensiveEvaluationFramework)
 
 **职责：**
-- 多维度专业评估
-- 密码学准确性验证
-- 人在回路评估工作流
+- 多维度专业准确性评估
+- 改进的中文语义相似性评估
+- 专家QA数据集构建和管理
+- 人在回路评估工作流程
+- 标注者间一致性分析
 
 **核心接口：**
 ```python
-class ExpertEvaluator:
-    def evaluate_crypto_accuracy(self, model_outputs: List[str], references: List[str]) -> CryptoAccuracyScore
-    def calculate_chinese_rouge(self, predictions: List[str], references: List[str]) -> RougeScores
-    def setup_human_evaluation(self, test_cases: List[TestCase]) -> HumanEvalWorkflow
-    def generate_expert_report(self, evaluation_results: EvaluationResults) -> ExpertReport
+class ComprehensiveEvaluationFramework:
+    def evaluate_model_response(self, question: str, model_answer: str, reference_answer: str) -> EvaluationResult
+    def batch_evaluate(self, qa_pairs: List[Tuple[str, str, str]]) -> List[EvaluationResult]
+    def generate_evaluation_report(self, results: List[EvaluationResult]) -> Dict[str, Any]
+
+class ProfessionalAccuracyEvaluator:
+    def evaluate_technical_accuracy(self, answer: str, reference: str, context: str) -> float
+    def evaluate_conceptual_understanding(self, answer: str, question: str) -> float
+    def evaluate_practical_applicability(self, answer: str, context: str) -> float
+
+class ChineseSemanticEvaluator:
+    def evaluate_semantic_similarity(self, answer: str, reference: str) -> float
+    def evaluate_linguistic_quality(self, text: str) -> float
+
+class ExpertQAManager:
+    def register_expert(self, expert: ExpertProfile) -> bool
+    def create_annotation_task(self, qa_item_id: str, expert_ids: List[str]) -> Optional[str]
+    def submit_annotation(self, task_id: str, expert_id: str, annotation: Dict[str, Any]) -> bool
+    def calculate_inter_annotator_agreement(self, task_id: str) -> Dict[str, float]
+    def get_quality_control_report(self) -> Dict[str, Any]
 ```
+
+**评估维度：**
+- **技术准确性 (Technical Accuracy)**: 专业概念正确性、算法描述准确性、技术错误检测
+- **概念理解 (Conceptual Understanding)**: 理解深度、概念关联性、解释完整性
+- **实用性 (Practical Applicability)**: 应用场景覆盖、实现可行性、安全考虑
+- **语言质量 (Linguistic Quality)**: 中文语法、流畅性、术语使用、表达清晰度
+- **推理连贯性 (Reasoning Coherence)**: 逻辑连贯性、推理步骤、结论合理性
 
 ### 7. 模型导出模块 (ModelExporter)
 
