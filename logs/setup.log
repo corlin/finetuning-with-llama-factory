@@ -1,0 +1,21 @@
+2025-08-24 07:51:55,824 - environment_setup - INFO - 项目目录结构创建完成
+2025-08-24 07:51:55,836 - gpu_utils - INFO - NVIDIA管理库初始化成功
+2025-08-24 07:51:55,836 - config_manager - INFO - 配置文件不存在: configs\config.yaml，使用默认配置
+2025-08-24 07:51:55,841 - config_manager - INFO - 配置文件保存成功: configs\config.yaml
+2025-08-24 07:51:55,887 - gpu_utils - INFO - CUDA可用: 版本 12.9, 设备数量: 1
+2025-08-24 07:54:59,555 - environment_setup - INFO - 项目目录结构创建完成
+2025-08-24 07:54:59,568 - gpu_utils - INFO - NVIDIA管理库初始化成功
+2025-08-24 07:54:59,576 - config_manager - INFO - 配置文件加载成功: configs\config.yaml
+2025-08-24 07:54:59,624 - gpu_utils - INFO - CUDA可用: 版本 12.9, 设备数量: 1
+2025-08-24 07:56:28,954 - environment_setup - INFO - 项目目录结构创建完成
+2025-08-24 07:56:28,965 - gpu_utils - INFO - NVIDIA管理库初始化成功
+2025-08-24 07:56:28,972 - config_manager - INFO - 配置文件加载成功: configs\config.yaml
+2025-08-24 07:56:29,030 - gpu_utils - INFO - CUDA可用: 版本 12.9, 设备数量: 1
+2025-08-24 07:58:02,201 - environment_setup - INFO - 项目目录结构创建完成
+2025-08-24 07:58:02,213 - gpu_utils - INFO - NVIDIA管理库初始化成功
+2025-08-24 07:58:02,220 - config_manager - INFO - 配置文件加载成功: configs\config.yaml
+2025-08-24 07:58:02,268 - gpu_utils - INFO - CUDA可用: 版本 12.9, 设备数量: 1
+2025-08-24 08:00:19,177 - environment_setup - INFO - 项目目录结构创建完成
+2025-08-24 08:00:19,189 - gpu_utils - INFO - NVIDIA管理库初始化成功
+2025-08-24 08:00:19,197 - config_manager - INFO - 配置文件加载成功: configs\config.yaml
+2025-08-24 08:00:19,238 - gpu_utils - INFO - CUDA可用: 版本 12.9, 设备数量: 1

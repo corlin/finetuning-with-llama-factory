@@ -1,0 +1,68 @@
+[project]
+name = "llama-factory-finetuning"
+version = "0.1.0"
+description = "LLaMA Factory based finetuning system for Qwen3-4B-Thinking model with Chinese cryptography focus"
+authors = [
+    {name = "AI Assistant", email = "assistant@example.com"},
+]
+dependencies = [
+    "torch>=2.1.0",
+    "transformers>=4.36.0",
+    "datasets>=2.14.0",
+    "accelerate>=0.24.0",
+    "peft>=0.7.0",
+    "bitsandbytes>=0.41.0",
+    "scipy>=1.11.0",
+    "sentencepiece>=0.1.99",
+    "protobuf>=3.20.0",
+    "jieba>=0.42.1",
+    "opencc-python-reimplemented>=0.1.7",
+    "rouge-chinese>=1.0.3",
+    "nltk>=3.8.1",
+    "psutil>=5.9.0",
+    "pynvml>=11.5.0",
+    "tensorboard>=2.14.0",
+    "wandb>=0.16.0",
+    "tqdm>=4.66.0",
+    "colorama>=0.4.6",
+    "pyyaml>=6.0.1",
+    "click>=8.1.7",
+    "pytest>=8.4.1",
+]
+readme = "README.md"
+requires-python = ">= 3.12"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-cov>=4.1.0",
+    "black>=23.0.0",
+    "isort>=5.12.0",
+    "flake8>=6.0.0",
+    "mypy>=1.5.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 88
+select = ["E", "W", "F", "I", "N", "B", "A", "C4", "UP", "SIM"]
+
+[tool.ruff.per-file-ignores]
+"__init__.py" = ["F401"]
+
+[[tool.uv.index]]
+name = "pytorch-cu129"
+url = "https://download.pytorch.org/whl/cu129"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cu129" }
+torchvision = { index = "pytorch-cu129" }
+torchaudio = { index = "pytorch-cu129" }
