@@ -11,7 +11,7 @@ from typing import Dict, List, Optional, Tuple, Any
 from dataclasses import dataclass, field
 from enum import Enum
 
-from .gpu_utils import GPUDetector, GPUTopology, InterconnectType
+from gpu_utils import GPUDetector, GPUTopology, InterconnectType
 
 
 class ParallelStrategy(Enum):

@@ -2,9 +2,9 @@
 
 ## 概述
 
-本系统基于LLaMA Factory框架构建，专门针对Qwen/Qwen3-4B-Thinking-2507模型的中文密码学领域微调需求。系统采用模块化架构，支持从markdown数据预处理到模型量化导出的完整工作流，特别支持深度思考(thinking)数据格式的处理和微调。核心设计理念是内存效率优先、多GPU并行训练、专业领域适配和专家级评估标准。
+本系统基于自研训练框架构建，专门针对Qwen/Qwen3-4B-Thinking-2507模型的中文密码学领域微调需求。系统采用模块化架构，支持从markdown数据预处理到模型量化导出的完整工作流，特别支持深度思考(thinking)数据格式的处理和微调。核心设计理念是内存效率优先、多GPU并行训练、专业领域适配和专家级评估标准。系统完全基于PyTorch和自研模块，包括分布式训练引擎、内存管理器、GPU检测器等核心组件。
 
-系统支持多种并行训练策略：数据并行(DDP)、模型并行(MP)、流水线并行(PP)和混合并行，能够充分利用多显卡资源进行高效训练。系统主要组件包括：深度思考数据处理模块、Qwen模型适配模块、并行训练管理模块、监控评估模块和模型导出模块。每个模块都针对Qwen3-4B-Thinking模型特性、中文文本处理、密码学专业术语、thinking推理模式和多GPU环境进行了优化。
+系统支持多种并行训练策略：数据并行(DDP)、模型并行(MP)、流水线并行(PP)和混合并行，能够充分利用多显卡资源进行高效训练。系统主要组件包括：深度思考数据处理模块、直接训练引擎、分布式训练管理模块、内存优化模块、监控评估模块和模型导出模块。每个模块都针对Qwen3-4B-Thinking模型特性、中文文本处理、密码学专业术语、thinking推理模式和多GPU环境进行了优化。
 
 ## 架构
 
@@ -60,7 +60,7 @@ graph TB
 
 1. **应用层** - 用户接口和工作流编排
 2. **业务逻辑层** - 数据处理、训练管理、评估逻辑
-3. **框架适配层** - LLaMA Factory集成和扩展
+3. **训练引擎层** - 直接训练引擎、分布式训练管理、内存优化
 4. **基础设施层** - GPU管理、存储、监控
 
 ## 组件和接口
@@ -83,7 +83,7 @@ class ThinkingDataProcessor:
     def validate_thinking_format(self, thinking_text: str) -> ValidationResult
     def preprocess_chinese_text(self, text: str) -> str
     def extract_crypto_terms(self, text: str) -> List[CryptoTerm]
-    def validate_qwen_format(self, dataset: Dataset) -> ValidationResult
+    def validate_pytorch_format(self, dataset: Dataset) -> ValidationResult
 ```
 
 **深度思考处理特性：**

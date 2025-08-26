@@ -17,7 +17,7 @@ import numpy as np
 import torch
 import torch.distributed as dist
 
-from .parallel_config import DistributedTrainingMetrics, CommunicationMetrics, GPUInfo
+from parallel_config import DistributedTrainingMetrics, CommunicationMetrics, GPUInfo
 
 
 # 配置日志

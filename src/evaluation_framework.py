@@ -16,7 +16,7 @@ import numpy as np
 from datetime import datetime
 import logging
 
-from .data_models import CryptoTerm, ThinkingExample
+from data_models import CryptoTerm, ThinkingExample
 
 
 class EvaluationDimension(Enum):

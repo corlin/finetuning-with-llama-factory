@@ -888,6 +888,11 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/39/7b/bb06b061991107cd8783f300adff3e7b7f284e330fd82f507f2a1417b11d/huggingface_hub-0.34.4-py3-none-any.whl", hash = "sha256:9b365d781739c93ff90c359844221beef048403f1bc1f1c123c191257c3c890a", size = 561452 },
 ]
 
+[package.optional-dependencies]
+hf-xet = [
+    { name = "hf-xet" },
+]
+
 [[package]]
 name = "idna"
 version = "3.10"
@@ -1063,6 +1068,7 @@ dependencies = [
     { name = "colorama" },
     { name = "datasets" },
     { name = "distribute" },
+    { name = "huggingface-hub", extra = ["hf-xet"] },
     { name = "jieba" },
     { name = "llamafactory" },
     { name = "matplotlib" },
@@ -1109,6 +1115,7 @@ requires-dist = [
     { name = "datasets", specifier = ">=2.14.0" },
     { name = "distribute", specifier = ">=0.7.3" },
     { name = "flake8", marker = "extra == 'dev'", specifier = ">=6.0.0" },
+    { name = "huggingface-hub", extras = ["hf-xet"], specifier = ">=0.34.4" },
     { name = "isort", marker = "extra == 'dev'", specifier = ">=5.12.0" },
     { name = "jieba", specifier = ">=0.42.1" },
     { name = "llamafactory", specifier = ">=0.9.3" },

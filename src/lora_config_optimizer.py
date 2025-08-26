@@ -12,8 +12,8 @@ from typing import Dict, List, Optional, Tuple, Any, Union
 from enum import Enum
 
 try:
-    from .parallel_config import GPUTopology, GPUInfo, ParallelConfig
-    from .data_models import ChineseMetrics
+    from parallel_config import GPUTopology, GPUInfo, ParallelConfig
+    from data_models import ChineseMetrics
 except ImportError:
     from parallel_config import GPUTopology, GPUInfo, ParallelConfig
     from data_models import ChineseMetrics

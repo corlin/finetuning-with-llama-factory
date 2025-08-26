@@ -25,8 +25,8 @@ from contextlib import contextmanager
 import gc
 import warnings
 
-from .memory_manager import MemoryManager, MemorySnapshot, MemoryPressureLevel
-from .gradient_manager import GradientManager
+from memory_manager import MemoryManager, MemorySnapshot, MemoryPressureLevel
+from gradient_manager import GradientManager
 
 
 class OOMSeverity(Enum):

@@ -14,7 +14,7 @@ from datetime import datetime
 import logging
 from pathlib import Path
 
-from .evaluation_framework import ExpertQAItem, EvaluationDimension, ExpertiseLevel
+from evaluation_framework import ExpertQAItem, EvaluationDimension, ExpertiseLevel
 
 
 class AnnotationStatus(Enum):

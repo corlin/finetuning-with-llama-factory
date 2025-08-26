@@ -21,7 +21,7 @@ from collections import Counter, defaultdict
 import numpy as np
 from datetime import datetime
 
-from .data_models import (
+from data_models import (
     TrainingExample, ThinkingExample, CryptoTerm, 
     DifficultyLevel, CryptoCategory, ChineseMetrics
 )

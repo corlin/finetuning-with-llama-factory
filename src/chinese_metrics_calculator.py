@@ -15,9 +15,9 @@ import json
 import logging
 import numpy as np
 
-from .data_models import ChineseMetrics, CryptoTerm, ThinkingStructure
-from .chinese_nlp_processor import ChineseNLPProcessor
-from .crypto_term_processor import CryptoTermProcessor
+from data_models import ChineseMetrics, CryptoTerm, ThinkingStructure
+from chinese_nlp_processor import ChineseNLPProcessor
+from crypto_term_processor import CryptoTermProcessor
 
 
 # 配置日志

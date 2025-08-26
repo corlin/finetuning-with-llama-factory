@@ -19,8 +19,8 @@ import json
 from datetime import datetime, timedelta
 import warnings
 
-from .gpu_utils import GPUDetector, GPUInfo, GPUTopology
-from .data_models import ChineseMetrics
+from gpu_utils import GPUDetector, GPUInfo, GPUTopology
+from data_models import ChineseMetrics
 
 
 class MemoryPressureLevel(Enum):

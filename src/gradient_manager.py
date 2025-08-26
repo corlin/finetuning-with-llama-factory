@@ -23,7 +23,7 @@ import gc
 import warnings
 from contextlib import contextmanager
 
-from .memory_manager import MemoryManager, MemorySnapshot
+from memory_manager import MemoryManager, MemorySnapshot
 
 
 @dataclass

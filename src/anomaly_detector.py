@@ -18,9 +18,9 @@ matplotlib.use('Agg')  # 使用非交互式后端
 import seaborn as sns
 from pathlib import Path
 
-from .parallel_config import DistributedTrainingMetrics
-from .data_models import ChineseMetrics
-from .chinese_metrics_calculator import CryptoTermLearningProgress
+from parallel_config import DistributedTrainingMetrics
+from data_models import ChineseMetrics
+from chinese_metrics_calculator import CryptoTermLearningProgress
 
 
 # 配置日志
