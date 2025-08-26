@@ -19,8 +19,8 @@ import json
 from datetime import datetime, timedelta
 import warnings
 
-from gpu_utils import GPUDetector, GPUInfo, GPUTopology
-from data_models import ChineseMetrics
+from src.gpu_utils import GPUDetector, GPUInfo, GPUTopology
+from src.data_models import ChineseMetrics
 
 
 class MemoryPressureLevel(Enum):
@@ -777,6 +777,30 @@ class MemoryManager:
         except Exception as e:
             self.logger.error(f"设置批次大小失败: {e}")
             return False
+    
+    def get_memory_status(self, gpu_id: int = 0) -> Dict[str, Any]:
+        """获取内存状态"""
+        snapshot = self.get_current_memory_status(gpu_id)
+        if snapshot:
+            return {
+                "gpu_id": snapshot.gpu_id,
+                "total_memory_gb": snapshot.total_memory / 1024,
+                "allocated_memory_gb": snapshot.allocated_memory / 1024,
+                "free_memory_gb": snapshot.free_memory / 1024,
+                "utilization_rate": snapshot.utilization_rate,
+                "pressure_level": snapshot.pressure_level.value,
+                "system_total_memory_gb": snapshot.system_total_memory / 1024,
+                "system_available_memory_gb": snapshot.system_available_memory / 1024,
+                "process_memory_gb": snapshot.process_memory / 1024
+            }
+        else:
+            return {
+                "error": "无法获取内存状态",
+                "total_memory_gb": 0,
+                "allocated_memory_gb": 0,
+                "free_memory_gb": 0,
+                "utilization_rate": 0.0
+            }
     
     def export_memory_report(self, output_path: str, gpu_id: int = 0, 
                            duration_hours: int = 24) -> bool:

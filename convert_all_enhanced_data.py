@@ -20,8 +20,8 @@ class ThinkingExample:
     difficulty: str = "INTERMEDIATE"
     source_file: str = ""
     
-    def to_llama_factory_format(self) -> Dict:
-        """转换为LLaMA Factory格式"""
+    def to_training_format(self) -> Dict:
+        """转换为训练格式（通用格式，不依赖特定框架）"""
         system_prompt = "你是一个密码学专家，请根据GB/T 39786-2021等相关标准回答问题。在回答前，请在<thinking>标签中展示你的思考过程。"
         
         instruction = self.question

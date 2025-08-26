@@ -130,15 +130,15 @@ def simple_data_processing():
         output_dir = Path("demo_output")
         output_dir.mkdir(exist_ok=True)
         
-        # 转换为LLaMA Factory格式
-        llamafactory_data = []
+        # 转换为训练格式（通用格式）
+        training_data = []
         for example in examples:
-            llamafactory_data.append(example.to_llama_factory_format())
+            training_data.append(example.to_training_format())
         
         # 保存数据
         output_file = output_dir / "processed_data.json"
         with open(output_file, 'w', encoding='utf-8') as f:
-            json.dump(llamafactory_data, f, ensure_ascii=False, indent=2)
+            json.dump(training_data, f, ensure_ascii=False, indent=2)
         
         logger.info(f"处理结果已保存到: {output_file}")
         
@@ -148,7 +148,7 @@ def simple_data_processing():
             "source_file": str(sample_file),
             "total_examples": len(examples),
             "output_file": str(output_file),
-            "sample_data": llamafactory_data[:2] if llamafactory_data else []
+            "sample_data": training_data[:2] if training_data else []
         }
         
         report_file = output_dir / "processing_report.json"

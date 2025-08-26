@@ -13,7 +13,7 @@ from enum import Enum
 import jieba
 import jieba.posseg as pseg
 
-from data_models import (
+from src.data_models import (
     ThinkingExample, ThinkingStructure, ReasoningStep, 
     CryptoTerm, CryptoCategory, DifficultyLevel, ChineseMetrics
 )

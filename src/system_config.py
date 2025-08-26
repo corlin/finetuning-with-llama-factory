@@ -15,7 +15,7 @@ from enum import Enum
 import logging
 from datetime import datetime
 
-from parallel_config import ParallelStrategy, CommunicationBackend, ZeroStage
+from src.parallel_config import ParallelStrategy, CommunicationBackend, ZeroStage
 
 
 class ConfigFormat(Enum):

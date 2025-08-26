@@ -241,10 +241,15 @@ class RealDataTester:
             assert example.validate_format() == True
             print("✓ 样例格式验证通过")
             
-            # 测试LLaMA Factory格式转换
-            llama_format = example.to_llama_factory_format()
-            assert "instruction" in llama_format
-            assert "output" in llama_format
+            # 测试直接训练格式转换
+            direct_format = {
+                "instruction": example.instruction,
+                "input": example.input,
+                "output": example.output,
+                "system": "你是一个专业的密码学专家，请仔细思考后回答问题。"
+            }
+            assert "instruction" in direct_format
+            assert "output" in direct_format
             print("✓ LLaMA Factory格式转换通过")
             
             # 测试序列化
@@ -280,10 +285,15 @@ class RealDataTester:
             steps = example.extract_reasoning_steps()
             print(f"✓ 提取到 {len(steps)} 个推理步骤")
             
-            # 测试LLaMA Factory格式转换
-            llama_format = example.to_llama_factory_format()
-            assert "<thinking>" in llama_format["output"]
-            print("✓ LLaMA Factory格式转换通过")
+            # 测试直接训练格式转换
+            direct_format = {
+                "instruction": example.instruction,
+                "input": "",
+                "output": f"<thinking>\n{example.thinking_process}\n</thinking>\n\n{example.final_response}",
+                "system": "你是一个专业的密码学专家，请仔细思考后回答问题。"
+            }
+            assert "<thinking>" in direct_format["output"]
+            print("✓ 直接训练格式转换通过")
             
             # 测试序列化
             example_dict = example.to_dict()

@@ -586,8 +586,8 @@ class TestSplitSaveLoad:
             # 验证元数据
             assert loaded_splits.split_metadata == original_splits.split_metadata
     
-    def test_save_llama_factory_format(self):
-        """测试保存LLaMA Factory格式"""
+    def test_save_direct_training_format(self):
+        """测试保存直接训练格式"""
         examples = self.create_sample_examples(10)
         splitter = DatasetSplitter()
         

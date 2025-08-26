@@ -18,8 +18,8 @@ class ThinkingExample:
     answer: str
     difficulty: str = "INTERMEDIATE"
     
-    def to_llama_factory_format(self) -> Dict:
-        """转换为LLaMA Factory格式"""
+    def to_direct_training_format(self) -> Dict:
+        """转换为直接训练格式"""
         system_prompt = "你是一个密码学专家，请根据GB/T 39786-2021等相关标准回答问题。在回答前，请在<thinking>标签中展示你的思考过程。"
         
         instruction = self.question
@@ -29,8 +29,7 @@ class ThinkingExample:
             "instruction": instruction,
             "input": "",
             "output": thinking_content,
-            "system": system_prompt,
-            "history": []
+            "system": system_prompt
         }
 
 class EnhancedQAProcessor:
@@ -208,7 +207,7 @@ def test_enhanced_qa_files():
         print("\n=== LLaMA Factory格式示例 ===")
         if all_examples:
             sample_example = all_examples[0]
-            llama_format = sample_example.to_llama_factory_format()
+            direct_format = sample_example.to_direct_training_format()
             
             print("样例转换结果:")
             print(f"Instruction: {llama_format['instruction'][:100]}...")

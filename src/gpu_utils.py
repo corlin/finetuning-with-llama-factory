@@ -196,6 +196,10 @@ class GPUDetector:
         self._initialize_pynvml()
         self._topology_cache: Optional[GPUTopology] = None
     
+    def detect_gpus(self) -> List[GPUInfo]:
+        """检测所有GPU信息"""
+        return self.get_all_gpu_info()
+    
     def _initialize_pynvml(self) -> None:
         """初始化NVIDIA管理库"""
         if PYNVML_AVAILABLE:

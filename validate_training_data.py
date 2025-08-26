@@ -7,8 +7,8 @@ import json
 import os
 from pathlib import Path
 
-def validate_llama_factory_format(data_file: str) -> dict:
-    """验证LLaMA Factory数据格式"""
+def validate_direct_training_format(data_file: str) -> dict:
+    """验证直接训练数据格式"""
     try:
         with open(data_file, 'r', encoding='utf-8') as f:
             data = json.load(f)
@@ -79,7 +79,7 @@ def main():
         file_path = os.path.join(data_dir, json_file)
         print(f"🔍 验证文件: {json_file}")
         
-        result = validate_llama_factory_format(file_path)
+        result = validate_direct_training_format(file_path)
         
         if result["valid"]:
             print(f"   ✅ 格式正确")
@@ -112,7 +112,7 @@ def main():
     main_file = os.path.join(data_dir, "thinking_training_data.json")
     if os.path.exists(main_file):
         print(f"\n🎯 主训练文件验证:")
-        result = validate_llama_factory_format(main_file)
+        result = validate_direct_training_format(main_file)
         if result["valid"]:
             print(f"   ✅ 主文件格式正确，包含 {result['total_items']} 个训练样例")
             print(f"   🧠 所有样例都包含thinking: {result['thinking_ratio'] == 1.0}")

@@ -18,8 +18,8 @@ import numpy as np
 import torch
 import psutil
 
-from data_models import ChineseMetrics
-from parallel_config import DistributedTrainingMetrics, GPUInfo, CommunicationMetrics
+from src.data_models import ChineseMetrics
+from src.parallel_config import DistributedTrainingMetrics, GPUInfo, CommunicationMetrics
 
 
 # 配置日志

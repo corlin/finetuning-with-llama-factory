@@ -1,0 +1,88 @@
+version: '3.8'
+
+services:
+  qwen-model-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: qwen-thinking-service
+    ports:
+      - "8000:8000"
+    environment:
+      - CUDA_VISIBLE_DEVICES=0
+      - MODEL_PATH=/app/models/qwen3-4b-thinking
+      - QUANTIZATION_FORMAT=int8
+      - LOG_LEVEL=INFO
+      - MAX_WORKERS=1
+      - BATCH_SIZE=4
+    volumes:
+      - ./models:/app/models:ro
+      - ./logs:/app/logs
+      - ./configs:/app/configs:ro
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # 可选：添加监控服务
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: qwen-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+      - '--storage.tsdb.retention.time=30d'
+    restart: unless-stopped
+    profiles: ["monitoring"]
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: qwen-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana-storage:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+    restart: unless-stopped
+    profiles: ["monitoring"]
+
+  # 可选：Redis缓存服务
+  redis:
+    image: redis:7-alpine
+    container_name: qwen-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+    profiles: ["cache"]
+
+volumes:
+  grafana-storage:
+  redis-data:
+  prometheus-data:
+
+networks:
+  default:
+    name: qwen-network

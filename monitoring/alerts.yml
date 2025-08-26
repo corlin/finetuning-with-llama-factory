@@ -1,0 +1,105 @@
+# Prometheus 告警规则
+groups:
+  - name: qwen-service-alerts
+    rules:
+      # 服务可用性告警
+      - alert: ServiceDown
+        expr: up{job="qwen-service"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Qwen服务不可用"
+          description: "Qwen模型服务已停止响应超过1分钟"
+
+      # 高错误率告警
+      - alert: HighErrorRate
+        expr: rate(http_requests_total{status=~"5.."}[5m]) > 0.1
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "高错误率检测"
+          description: "5分钟内错误率超过10%: {{ $value }}"
+
+      # 响应时间过长告警
+      - alert: HighResponseTime
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 5
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "响应时间过长"
+          description: "95%分位响应时间超过5秒: {{ $value }}s"
+
+      # 内存使用率过高告警
+      - alert: HighMemoryUsage
+        expr: (node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) / node_memory_MemTotal_bytes > 0.9
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "内存使用率过高"
+          description: "系统内存使用率超过90%: {{ $value | humanizePercentage }}"
+
+      # GPU温度过高告警
+      - alert: HighGPUTemperature
+        expr: nvidia_gpu_temperature_celsius > 80
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "GPU温度过高"
+          description: "GPU温度超过80°C: {{ $value }}°C"
+
+      # GPU内存使用率过高告警
+      - alert: HighGPUMemoryUsage
+        expr: nvidia_gpu_memory_used_bytes / nvidia_gpu_memory_total_bytes > 0.9
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "GPU内存使用率过高"
+          description: "GPU内存使用率超过90%: {{ $value | humanizePercentage }}"
+
+      # 磁盘空间不足告警
+      - alert: LowDiskSpace
+        expr: (node_filesystem_size_bytes - node_filesystem_free_bytes) / node_filesystem_size_bytes > 0.85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "磁盘空间不足"
+          description: "磁盘使用率超过85%: {{ $value | humanizePercentage }}"
+
+      # 模型推理队列积压告警
+      - alert: HighInferenceQueueLength
+        expr: inference_queue_length > 10
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "推理队列积压"
+          description: "推理队列长度超过10: {{ $value }}"
+
+  - name: system-alerts
+    rules:
+      # CPU使用率过高告警
+      - alert: HighCPUUsage
+        expr: 100 - (avg by(instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "CPU使用率过高"
+          description: "CPU使用率超过80%: {{ $value }}%"
+
+      # 负载过高告警
+      - alert: HighSystemLoad
+        expr: node_load15 > 2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "系统负载过高"
+          description: "15分钟平均负载超过2: {{ $value }}"

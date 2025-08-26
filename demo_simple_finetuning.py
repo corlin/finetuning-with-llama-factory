@@ -263,9 +263,9 @@ class SimpleFinetuningDemo:
         else:
             return DifficultyLevel.EXPERT
     
-    def convert_to_llamafactory_format(self) -> Dict[str, Any]:
+    def convert_to_training_format(self) -> Dict[str, Any]:
         """
-        转换数据为LLaMA Factory格式
+        转换数据为训练格式（通用格式，不依赖特定框架）
         
         Returns:
             Dict[str, Any]: 转换结果信息
@@ -659,7 +659,7 @@ if __name__ == "__main__":
             
             # 2. 转换数据格式
             print("\n🔄 步骤 2: 转换数据格式...")
-            data_files = self.convert_to_llamafactory_format()
+            data_files = self.convert_to_training_format()
             if not data_files:
                 print("❌ 数据格式转换失败")
                 return False

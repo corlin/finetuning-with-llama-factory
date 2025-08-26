@@ -14,8 +14,8 @@ from enum import Enum
 from collections import Counter, defaultdict
 
 try:
-    from data_models import CryptoTerm, CryptoCategory, ThinkingStructure, ThinkingExample
-    from chinese_nlp_processor import ChineseNLPProcessor, ChineseToken
+    from src.data_models import CryptoTerm, CryptoCategory, ThinkingStructure, ThinkingExample
+    from src.chinese_nlp_processor import ChineseNLPProcessor, ChineseToken
 except ImportError:
     from src.data_models import CryptoTerm, CryptoCategory, ThinkingStructure, ThinkingExample
     from src.chinese_nlp_processor import ChineseNLPProcessor, ChineseToken

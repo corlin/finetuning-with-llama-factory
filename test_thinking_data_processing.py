@@ -206,9 +206,14 @@ def test_crypto_domain_thinking_examples():
         steps = example.extract_reasoning_steps()
         print(f"推理步骤数量: {len(steps)}")
         
-        # 转换为LLaMA Factory格式
-        llama_format = example.to_llama_factory_format()
-        print(f"LLaMA格式输出长度: {len(llama_format['output'])} 字符")
+        # 转换为直接训练格式
+        direct_format = {
+            "instruction": example.instruction,
+            "input": "",
+            "output": f"<thinking>\n{example.thinking_process}\n</thinking>\n\n{example.final_response}",
+            "system": "你是一个专业的密码学专家，请仔细思考后回答问题。"
+        }
+        print(f"直接训练格式输出长度: {len(direct_format['output'])} 字符")
     
     return thinking_examples
 

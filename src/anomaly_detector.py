@@ -19,7 +19,7 @@ import seaborn as sns
 from pathlib import Path
 
 from parallel_config import DistributedTrainingMetrics
-from data_models import ChineseMetrics
+from src.data_models import ChineseMetrics
 from chinese_metrics_calculator import CryptoTermLearningProgress
 
 

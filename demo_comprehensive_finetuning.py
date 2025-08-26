@@ -34,7 +34,7 @@ from config_manager import TrainingConfig, DataConfig, SystemConfig
 from lora_config_optimizer import LoRAConfigOptimizer, LoRAMemoryProfile
 from parallel_config import ParallelConfig, ParallelStrategy
 from gpu_utils import GPUDetector
-from llamafactory_adapter import LlamaFactoryAdapter
+# LlamaFactory adapter removed - using direct training engine
 from training_pipeline import TrainingPipelineOrchestrator, PipelineState
 from thinking_generator import ThinkingDataGenerator
 
@@ -59,7 +59,7 @@ class ComprehensiveFinetuningDemo:
         # 初始化组件
         self.gpu_detector = GPUDetector()
         self.lora_optimizer = LoRAConfigOptimizer()
-        self.llamafactory_adapter = LlamaFactoryAdapter(self.logger)
+        # LlamaFactory adapter removed - using direct training engine
         self.thinking_processor = ThinkingDataGenerator()
         
         # 数据存储

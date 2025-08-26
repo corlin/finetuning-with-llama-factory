@@ -32,7 +32,7 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.distributed import init_process_group, destroy_process_group
 from torch.distributed.algorithms.ddp_comm_hooks import default_hooks as ddp_hooks
 
-from parallel_config import (
+from src.parallel_config import (
     ParallelConfig, GPUTopology, CommunicationBackend, 
     DistributedTrainingMetrics, CommunicationMetrics
 )

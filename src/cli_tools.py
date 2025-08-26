@@ -27,12 +27,12 @@ from rich.layout import Layout
 from rich.text import Text
 from rich import box
 
-from data_models import TrainingExample, ThinkingExample, DifficultyLevel
+from src.data_models import TrainingExample, ThinkingExample, DifficultyLevel
 from config_manager import TrainingConfig, DataConfig, SystemConfig
 from lora_config_optimizer import LoRAMemoryProfile, LoRAOptimizationStrategy
 from parallel_config import ParallelConfig, ParallelStrategy
 from training_pipeline import TrainingPipelineOrchestrator, PipelineStage, PipelineStatus
-from llamafactory_adapter import LlamaFactoryAdapter
+# LlamaFactory adapter removed - using direct training engine
 from gpu_utils import GPUDetector
 
 

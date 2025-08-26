@@ -282,14 +282,7 @@ class ThinkingExample:
             self.reasoning_steps = steps
         return self.reasoning_steps
     
-    def to_llama_factory_format(self) -> Dict[str, Any]:
-        """转换为LLaMA Factory训练格式"""
-        return {
-            "instruction": self.instruction,
-            "input": "",
-            "output": f"<thinking>\n{self.thinking_process}\n</thinking>\n\n{self.final_response}",
-            "system": "你是一个专业的密码学专家，请仔细思考后回答问题。"
-        }
+
     
     def to_dict(self) -> Dict[str, Any]:
         """转换为字典格式"""
@@ -362,18 +355,7 @@ class TrainingExample:
             difficulty_level=self.difficulty_level
         )
     
-    def to_llama_factory_format(self) -> Dict[str, Any]:
-        """转换为LLaMA Factory训练格式"""
-        output = self.output
-        if self.has_thinking():
-            output = f"<thinking>\n{self.thinking}\n</thinking>\n\n{self.output}"
-        
-        return {
-            "instruction": self.instruction,
-            "input": self.input,
-            "output": output,
-            "system": "你是一个专业的密码学专家，请仔细思考后回答问题。"
-        }
+
     
     def to_dict(self) -> Dict[str, Any]:
         """转换为字典格式"""
@@ -457,3 +439,52 @@ class DataModelValidator:
         """反序列化训练样例列表"""
         data = json.loads(json_str)
         return [TrainingExample.from_dict(item) for item in data]
+
+
+@dataclass
+class ModelMetadata:
+    """模型元数据"""
+    model_name: str
+    model_type: str
+    model_path: str
+    quantization_format: str
+    parameters: str
+    language: str
+    domain: str
+    version: str = "1.0.0"
+    loaded_at: Optional[datetime] = None
+    file_size_mb: Optional[float] = None
+    checksum: Optional[str] = None
+    
+    def __post_init__(self):
+        """数据验证"""
+        if not self.model_name.strip():
+            raise ValueError("模型名称不能为空")
+        if not self.model_type.strip():
+            raise ValueError("模型类型不能为空")
+        if not self.model_path.strip():
+            raise ValueError("模型路径不能为空")
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """转换为字典格式"""
+        return {
+            "model_name": self.model_name,
+            "model_type": self.model_type,
+            "model_path": self.model_path,
+            "quantization_format": self.quantization_format,
+            "parameters": self.parameters,
+            "language": self.language,
+            "domain": self.domain,
+            "version": self.version,
+            "loaded_at": self.loaded_at.isoformat() if self.loaded_at else None,
+            "file_size_mb": self.file_size_mb,
+            "checksum": self.checksum
+        }
+    
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'ModelMetadata':
+        """从字典创建实例"""
+        data_copy = data.copy()
+        if data_copy.get("loaded_at"):
+            data_copy["loaded_at"] = datetime.fromisoformat(data["loaded_at"])
+        return cls(**data_copy)

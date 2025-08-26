@@ -9,8 +9,8 @@ import logging
 from typing import Dict, Any, Optional, Union
 from dataclasses import dataclass, asdict, fields
 from pathlib import Path
-from model_config import QwenModelConfig, LoRATrainingConfig, ChineseProcessingConfig
-from gpu_utils import SystemRequirements
+from src.model_config import QwenModelConfig, LoRATrainingConfig, ChineseProcessingConfig
+from src.gpu_utils import SystemRequirements
 
 
 @dataclass

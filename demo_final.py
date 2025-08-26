@@ -19,6 +19,7 @@
 import os
 import sys
 import json
+import json
 import yaml
 import logging
 import argparse
@@ -35,7 +36,7 @@ from config_manager import TrainingConfig, DataConfig, SystemConfig
 from lora_config_optimizer import LoRAConfigOptimizer, LoRAMemoryProfile
 from parallel_config import ParallelConfig, ParallelStrategy
 from gpu_utils import GPUDetector
-from llamafactory_adapter import LlamaFactoryAdapter
+# LlamaFactory adapter removed - using direct training engine
 
 
 class FinalDemo:
@@ -58,7 +59,7 @@ class FinalDemo:
         # 初始化组件
         self.gpu_detector = GPUDetector()
         self.lora_optimizer = LoRAConfigOptimizer()
-        self.llamafactory_adapter = LlamaFactoryAdapter(self.logger)
+        # LlamaFactory adapter removed - using direct training engine
         
         # 数据存储
         self.training_data: List[TrainingExample] = []
@@ -379,38 +380,50 @@ class FinalDemo:
         training_config, data_config, lora_config, parallel_config, system_config = configs
         
         try:
-            # 准备训练数据
-            dataset_name = "crypto_qa_dataset"
-            data_files = self.llamafactory_adapter.prepare_training_data(
-                self.training_data,
-                str(self.output_dir / "data"),
-                dataset_name,
-                "alpaca",
-                0.9
+            # 使用直接训练引擎替代LlamaFactory
+            from direct_finetuning_with_existing_modules import DirectTrainer, DirectTrainingConfig
+            
+            # 创建直接训练配置
+            direct_config = DirectTrainingConfig(
+                model_name="Qwen/Qwen3-4B-Thinking-2507",
+                data_path=str(self.output_dir / "data" / "train.json"),
+                output_dir=str(self.output_dir / "direct_training"),
+                num_epochs=training_config.num_epochs,
+                batch_size=training_config.batch_size,
+                learning_rate=training_config.learning_rate,
+                lora_rank=lora_config.rank,
+                lora_alpha=lora_config.alpha,
+                max_seq_length=training_config.max_seq_length,
+                use_fp16=True
             )
             
-            # 生成训练配置
-            config_file = self.llamafactory_adapter.create_training_config(
-                training_config,
-                data_config,
-                lora_config,
-                parallel_config,
-                dataset_name,
-                str(self.output_dir / "configs")
-            )
+            # 准备训练数据 (保存为JSON格式)
+            data_dir = self.output_dir / "data"
+            data_dir.mkdir(exist_ok=True)
             
-            # 生成训练脚本
-            script_file = self.llamafactory_adapter.generate_training_script(
-                config_file,
-                str(self.output_dir / "train.py")
-            )
+            # 将训练数据保存为JSON格式
+            train_data = []
+            for example in self.training_data:
+                train_data.append({
+                    "instruction": example.instruction,
+                    "input": example.input,
+                    "output": example.output
+                })
+            
+            train_file = data_dir / "train.json"
+            with open(train_file, 'w', encoding='utf-8') as f:
+                json.dump(train_data, f, ensure_ascii=False, indent=2)
+            
+            # 创建直接训练器
+            trainer = DirectTrainer(direct_config)
             
             result = {
-                "train_data": data_files.get("train_file", ""),
-                "val_data": data_files.get("val_file", ""),
-                "dataset_info": data_files.get("dataset_info_file", ""),
-                "config_file": config_file,
-                "script_file": script_file
+                "train_data": str(train_file),
+                "val_data": "",  # Direct trainer handles validation split internally
+                "dataset_info": f"Prepared {len(train_data)} training examples",
+                "config_file": str(direct_config.output_dir),
+                "script_file": "Using DirectTrainer.run() method",
+                "trainer": trainer  # Return trainer instance for potential use
             }
             
             self.logger.info("训练文件准备完成")
@@ -500,14 +513,14 @@ class FinalDemo:
                 "generated_files": files,
                 "training_instructions": {
                     "prerequisites": [
-                        "确保已安装 LLaMA Factory: pip install llamafactory",
+                        "确保已安装 PyTorch 和相关依赖",
                         "检查CUDA环境（如果使用GPU）",
                         "确认有足够的磁盘空间用于模型输出"
                     ],
                     "training_commands": [
                         f"cd {self.output_dir}",
-                        f"llamafactory-cli train {files.get('config_file', 'config.yaml')}",
-                        "或者运行: python train.py"
+                        "使用 DirectTrainer.run() 方法进行训练",
+                        "或者运行: uv run python direct_finetuning_with_existing_modules.py"
                     ],
                     "monitoring": [
                         "训练过程中可以通过 tensorboard 监控",

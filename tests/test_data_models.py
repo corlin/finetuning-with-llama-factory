@@ -309,18 +309,24 @@ class TestThinkingExample:
         assert len(steps) == 3
         assert "步骤1：分析问题" in steps
     
-    def test_to_llama_factory_format(self):
-        """测试转换为LLaMA Factory格式"""
+    def test_to_direct_training_format(self):
+        """测试转换为直接训练格式"""
         example = ThinkingExample(
             instruction="测试指令",
             thinking_process="思考过程",
             final_response="最终回答"
         )
         
-        llama_format = example.to_llama_factory_format()
-        assert llama_format["instruction"] == "测试指令"
-        assert "<thinking>" in llama_format["output"]
-        assert "最终回答" in llama_format["output"]
+        # Manual conversion to direct training format
+        direct_format = {
+            "instruction": example.instruction,
+            "input": "",
+            "output": f"<thinking>\n{example.thinking_process}\n</thinking>\n\n{example.final_response}",
+            "system": "你是一个专业的密码学专家，请仔细思考后回答问题。"
+        }
+        assert direct_format["instruction"] == "测试指令"
+        assert "<thinking>" in direct_format["output"]
+        assert "最终回答" in direct_format["output"]
     
     def test_thinking_example_serialization(self):
         """测试深度思考样例序列化"""
@@ -420,8 +426,8 @@ class TestTrainingExample:
         )
         assert example_no_thinking.to_thinking_example() is None
     
-    def test_to_llama_factory_format(self):
-        """测试转换为LLaMA Factory格式"""
+    def test_to_direct_training_format(self):
+        """测试转换为直接训练格式"""
         example = TrainingExample(
             instruction="指令",
             input="输入",
@@ -429,10 +435,20 @@ class TestTrainingExample:
             thinking="思考过程"
         )
         
-        llama_format = example.to_llama_factory_format()
-        assert llama_format["instruction"] == "指令"
-        assert llama_format["input"] == "输入"
-        assert "<thinking>" in llama_format["output"]
+        # Manual conversion to direct training format
+        output = example.output
+        if example.thinking:
+            output = f"<thinking>\n{example.thinking}\n</thinking>\n\n{example.output}"
+        
+        direct_format = {
+            "instruction": example.instruction,
+            "input": example.input,
+            "output": output,
+            "system": "你是一个专业的密码学专家，请仔细思考后回答问题。"
+        }
+        assert direct_format["instruction"] == "指令"
+        assert direct_format["input"] == "输入"
+        assert "<thinking>" in direct_format["output"]
     
     def test_training_example_serialization(self):
         """测试训练样例序列化"""

@@ -286,9 +286,9 @@ def test_pipeline_state_management():
         return False
 
 
-def test_integration_with_llamafactory():
-    """测试与LLaMA Factory的集成"""
-    print("\n测试与LLaMA Factory的集成...")
+def test_integration_with_direct_training():
+    """测试与直接训练引擎的集成"""
+    print("\n测试与直接训练引擎的集成...")
     
     temp_dir = tempfile.mkdtemp()
     
@@ -330,23 +330,23 @@ def test_integration_with_llamafactory():
                   orchestrator._stage_config_generation())
         
         if success:
-            print("✓ LLaMA Factory集成测试通过")
+            print("✓ 直接训练引擎集成测试通过")
             
             # 验证生成的文件
             if orchestrator.data_files and orchestrator.config_files:
                 print("  ✓ 数据文件和配置文件都已生成")
                 
-                # 检查LLaMA Factory配置文件内容
-                config_file = orchestrator.config_files.get("llamafactory_config")
+                # 检查直接训练配置文件内容
+                config_file = orchestrator.config_files.get("direct_training_config")
                 if config_file and Path(config_file).exists():
-                    print("  ✓ LLaMA Factory配置文件存在")
+                    print("  ✓ 直接训练配置文件存在")
                     
                     # 读取配置文件验证内容
                     import yaml
                     with open(config_file, 'r', encoding='utf-8') as f:
                         config = yaml.safe_load(f)
                     
-                    required_keys = ["model_name", "dataset", "lora_rank", "lora_alpha"]
+                    required_keys = ["model_name", "data_path", "lora_r", "lora_alpha"]
                     if all(key in config for key in required_keys):
                         print("  ✓ 配置文件包含必需字段")
                     else:
@@ -364,7 +364,7 @@ def test_integration_with_llamafactory():
                 print("  ✗ 文件生成不完整")
                 success = False
         else:
-            print("✗ LLaMA Factory集成测试失败")
+            print("✗ 直接训练引擎集成测试失败")
         
         return success
         
@@ -388,7 +388,7 @@ if __name__ == "__main__":
     test_results.append(test_pipeline_basic_functionality())
     test_results.append(test_pipeline_control())
     test_results.append(test_pipeline_state_management())
-    test_results.append(test_integration_with_llamafactory())
+    test_results.append(test_integration_with_direct_training())
     
     # 汇总结果
     passed = sum(test_results)

@@ -150,9 +150,9 @@ def analyze_thinking_quality(thinking_examples):
         print(f"  {term}: {freq} 次")
 
 
-def test_llama_factory_conversion(thinking_examples):
-    """测试LLaMA Factory格式转换"""
-    print("\n=== 测试LLaMA Factory格式转换 ===")
+def test_direct_training_conversion(thinking_examples):
+    """测试直接训练格式转换"""
+    print("\n=== 测试直接训练格式转换 ===")
     
     if not thinking_examples:
         print("没有thinking样例可转换")
@@ -161,13 +161,19 @@ def test_llama_factory_conversion(thinking_examples):
     success_count = 0
     for i, example in enumerate(thinking_examples[:5]):  # 测试前5个
         try:
-            llama_format = example.to_llama_factory_format()
+            # 手动创建直接训练格式
+            direct_format = {
+                "instruction": example.instruction,
+                "input": "",
+                "output": f"<thinking>\n{example.thinking_process}\n</thinking>\n\n{example.final_response}",
+                "system": "你是一个专业的密码学专家，请仔细思考后回答问题。"
+            }
             
             # 验证格式
             required_keys = ["instruction", "input", "output", "system"]
-            if all(key in llama_format for key in required_keys):
+            if all(key in direct_format for key in required_keys):
                 # 验证thinking标签
-                if "<thinking>" in llama_format["output"] and "</thinking>" in llama_format["output"]:
+                if "<thinking>" in direct_format["output"] and "</thinking>" in direct_format["output"]:
                     success_count += 1
                     print(f"  ✅ 样例 {i+1} 转换成功")
                 else:
@@ -237,8 +243,8 @@ def main():
     # 2. 分析thinking质量
     analyze_thinking_quality(thinking_examples)
     
-    # 3. 测试LLaMA Factory转换
-    test_llama_factory_conversion(thinking_examples)
+    # 3. 测试直接训练转换
+    test_direct_training_conversion(thinking_examples)
     
     # 4. 测试thinking验证
     test_thinking_validation()

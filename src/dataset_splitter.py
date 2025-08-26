@@ -21,7 +21,7 @@ from collections import Counter, defaultdict
 import numpy as np
 from datetime import datetime
 
-from data_models import (
+from src.data_models import (
     TrainingExample, ThinkingExample, CryptoTerm, 
     DifficultyLevel, CryptoCategory, ChineseMetrics
 )
@@ -1170,7 +1170,19 @@ class DatasetSplitter:
         ]:
             file_path = os.path.join(output_dir, f"{split_name}.json")
             with open(file_path, 'w', encoding='utf-8') as f:
-                data = [ex.to_llama_factory_format() for ex in examples]
+                # Convert to direct training format
+                data = []
+                for ex in examples:
+                    output = ex.output
+                    if hasattr(ex, 'thinking') and ex.thinking:
+                        output = f"<thinking>\n{ex.thinking}\n</thinking>\n\n{ex.output}"
+                    
+                    data.append({
+                        "instruction": ex.instruction,
+                        "input": ex.input,
+                        "output": output,
+                        "system": "你是一个专业的密码学专家，请仔细思考后回答问题。"
+                    })
                 json.dump(data, f, ensure_ascii=False, indent=2)
         
         # 保存分割元数据

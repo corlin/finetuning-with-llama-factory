@@ -44,7 +44,7 @@ from src.crypto_term_processor import CryptoTermProcessor
 from src.dataset_splitter import DatasetSplitter
 from src.parallel_strategy_recommender import ParallelStrategyRecommender
 from src.lora_config_optimizer import LoRAConfigOptimizer
-from src.llamafactory_adapter import LlamaFactoryAdapter
+# LlamaFactory adapter removed - using direct training engine
 from src.training_pipeline import TrainingPipelineOrchestrator
 from src.training_monitor import TrainingMonitor
 from src.evaluation_framework import ComprehensiveEvaluationFramework

@@ -347,3 +347,11 @@ wandb/
 demo_output/
 demo_splits/
 final_demo_output/
+
+comprehensive_integration_output/
+
+logs/
+
+qwen3_4b_thinking_output/
+
+test_pipeline_output/

@@ -28,6 +28,26 @@ import time
 from datetime import datetime
 import re
 
+
+def convert_numpy_types(obj):
+    """递归转换numpy类型为Python原生类型，以便JSON序列化"""
+    if isinstance(obj, np.integer):
+        return int(obj)
+    elif isinstance(obj, np.floating):
+        return float(obj)
+    elif isinstance(obj, np.bool_):
+        return bool(obj)
+    elif isinstance(obj, np.ndarray):
+        return obj.tolist()
+    elif isinstance(obj, dict):
+        return {key: convert_numpy_types(value) for key, value in obj.items()}
+    elif isinstance(obj, list):
+        return [convert_numpy_types(item) for item in obj]
+    elif isinstance(obj, tuple):
+        return tuple(convert_numpy_types(item) for item in obj)
+    else:
+        return obj
+
 # 导入已实现的模块
 sys.path.append('src')
 from data_models import TrainingExample, ThinkingExample, ChineseMetrics
@@ -50,7 +70,7 @@ class DirectTrainingConfig:
     batch_size: int = 1  # 4B模型需要更小批次
     gradient_accumulation_steps: int = 8  # 增加梯度累积
     learning_rate: float = 1e-4  # 更保守的学习率
-    num_epochs: int = 15
+    num_epochs: int = 2
     warmup_ratio: float = 0.1
     save_steps: int = 50  # 更频繁保存
     logging_steps: int = 5
@@ -305,26 +325,45 @@ class CryptoQADataset(Dataset):
                 # 基础QA对
                 enhanced_pair = qa_pair.copy()
                 
-                # 使用中文NLP处理器进行文本质量分析
+                # 使用中文NLP处理器进行文本质量分析和预处理
                 if self.chinese_processor:
-                    instruction_metrics = self.chinese_processor.analyze_text_quality(qa_pair['instruction'])
-                    output_metrics = self.chinese_processor.analyze_text_quality(qa_pair['output'])
+                    # 预处理文本
+                    enhanced_pair['instruction'] = self.chinese_processor.preprocess_for_training(
+                        qa_pair['instruction'], 
+                        normalize_variant=True,
+                        normalize_punctuation=True
+                    )
+                    enhanced_pair['output'] = self.chinese_processor.preprocess_for_training(
+                        qa_pair['output'],
+                        normalize_variant=True, 
+                        normalize_punctuation=True
+                    )
+                    
+                    # 文本质量分析
+                    instruction_metrics = self.chinese_processor.assess_text_quality(qa_pair['instruction'])
+                    output_metrics = self.chinese_processor.assess_text_quality(qa_pair['output'])
                     
                     enhanced_pair['chinese_metrics'] = {
-                        'instruction_quality': instruction_metrics.overall_score if instruction_metrics else 0.0,
-                        'output_quality': output_metrics.overall_score if output_metrics else 0.0
+                        'instruction_quality': instruction_metrics.overall_quality(),
+                        'output_quality': output_metrics.overall_quality(),
+                        'instruction_readability': instruction_metrics.readability_score,
+                        'output_readability': output_metrics.readability_score,
+                        'instruction_complexity': instruction_metrics.complexity_score,
+                        'output_complexity': output_metrics.complexity_score
                     }
                 
                 # 使用密码学术语处理器进行术语分析
                 if self.crypto_processor:
                     # 分析问题中的密码学术语
-                    instruction_terms = self.crypto_processor.extract_crypto_terms(qa_pair['instruction'])
-                    output_terms = self.crypto_processor.extract_crypto_terms(qa_pair['output'])
+                    instruction_terms = self.crypto_processor.identify_crypto_terms(qa_pair['instruction'])
+                    output_terms = self.crypto_processor.identify_crypto_terms(qa_pair['output'])
                     
                     enhanced_pair['crypto_terms'] = {
                         'instruction_terms': [term.term for term in instruction_terms],
                         'output_terms': [term.term for term in output_terms],
-                        'total_terms': len(instruction_terms) + len(output_terms)
+                        'total_terms': len(instruction_terms) + len(output_terms),
+                        'instruction_complexity': np.mean([term.complexity for term in instruction_terms]) if instruction_terms else 0,
+                        'output_complexity': np.mean([term.complexity for term in output_terms]) if output_terms else 0
                     }
                     
                     # 根据术语复杂度调整难度
@@ -403,9 +442,26 @@ class DirectTrainer:
             print(f"⚠️ 内存管理器初始化失败: {e}")
             self.memory_manager = None
         
-        # 初始化训练监控器（暂时跳过以避免依赖问题）
-        print("⚠️ 跳过训练监控器初始化（避免依赖问题）")
-        self.training_monitor = None
+        # 初始化并行策略推荐器
+        try:
+            self.parallel_recommender = ParallelStrategyRecommender()
+            print("✅ 初始化并行策略推荐器")
+        except Exception as e:
+            print(f"⚠️ 并行策略推荐器初始化失败: {e}")
+            self.parallel_recommender = None
+        
+        # 初始化训练监控器
+        try:
+            gpu_ids = list(range(len(self.gpu_info))) if self.gpu_info else [0]
+            self.training_monitor = TrainingMonitor(
+                gpu_ids=gpu_ids,
+                log_dir=os.path.join(self.config.output_dir, "training_logs"),
+                save_interval=self.config.logging_steps * 2
+            )
+            print("✅ 初始化训练监控器")
+        except Exception as e:
+            print(f"⚠️ 训练监控器初始化失败: {e}")
+            self.training_monitor = None
         
         # 设置设备
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -464,6 +520,40 @@ class DirectTrainer:
     def setup_lora(self):
         """设置LoRA配置"""
         print("🔄 配置LoRA...")
+        
+        # 使用并行策略推荐器优化LoRA配置
+        if self.parallel_recommender:
+            try:
+                recommendation = self.parallel_recommender.recommend_strategy(
+                    batch_size=self.config.batch_size,
+                    sequence_length=self.config.max_seq_length,
+                    enable_lora=True,
+                    lora_rank=self.config.lora_r
+                )
+                
+                print(f"📊 并行策略推荐: {recommendation.strategy.value}")
+                print(f"📊 推荐置信度: {recommendation.confidence:.2f}")
+                
+                if recommendation.reasoning:
+                    print("📋 推荐理由:")
+                    for reason in recommendation.reasoning:
+                        print(f"  - {reason}")
+                
+                if recommendation.warnings:
+                    print("⚠️ 警告:")
+                    for warning in recommendation.warnings:
+                        print(f"  - {warning}")
+                
+                # 根据推荐调整梯度累积步数
+                if hasattr(recommendation.config, 'gradient_accumulation_steps'):
+                    self.config.gradient_accumulation_steps = max(
+                        self.config.gradient_accumulation_steps,
+                        recommendation.config.gradient_accumulation_steps
+                    )
+                    print(f"📊 调整梯度累积步数: {self.config.gradient_accumulation_steps}")
+                
+            except Exception as e:
+                print(f"⚠️ 并行策略推荐失败: {e}")
         
         lora_config = LoraConfig(
             task_type=TaskType.CAUSAL_LM,
@@ -531,6 +621,11 @@ class DirectTrainer:
         """开始训练"""
         print("🚀 开始训练...")
         
+        # 启动训练监控
+        if self.training_monitor:
+            self.training_monitor.start_monitoring()
+            print("✅ 训练监控已启动")
+        
         self.model.train()
         global_step = 0
         total_loss = 0
@@ -540,6 +635,7 @@ class DirectTrainer:
             
             epoch_loss = 0
             epoch_steps = 0
+            epoch_start_time = time.time()
             
             for step, batch in enumerate(self.train_dataloader):
                 # 移动数据到设备
@@ -558,8 +654,8 @@ class DirectTrainer:
                 
                 # 梯度累积
                 if (step + 1) % self.config.gradient_accumulation_steps == 0:
-                    # 梯度裁剪
-                    torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
+                    # 计算梯度范数
+                    grad_norm = torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
                     
                     # 优化器步骤
                     self.optimizer.step()
@@ -568,18 +664,67 @@ class DirectTrainer:
                     
                     global_step += 1
                     
+                    # 获取当前学习率
+                    current_lr = self.scheduler.get_last_lr()[0]
+                    
+                    # 更新训练监控
+                    if self.training_monitor:
+                        try:
+                            # 计算中文指标（简化版）
+                            chinese_metrics = None
+                            if hasattr(self, 'chinese_processor') and self.chinese_processor:
+                                # 这里可以添加更详细的中文指标计算
+                                pass
+                            
+                            # 更新训练步骤
+                            self.training_monitor.update_training_step(
+                                epoch=epoch + 1,
+                                global_step=global_step,
+                                train_loss=loss.item() * self.config.gradient_accumulation_steps,
+                                learning_rate=current_lr,
+                                val_loss=None,  # 暂时没有验证损失
+                                chinese_metrics=chinese_metrics,
+                                additional_metrics={
+                                    "gradient_norm": float(grad_norm),
+                                    "batch_size": self.config.batch_size,
+                                    "sequence_length": self.config.max_seq_length
+                                }
+                            )
+                        except Exception as e:
+                            print(f"⚠️ 训练监控更新失败: {e}")
+                    
                     # 日志记录
                     if global_step % self.config.logging_steps == 0:
                         avg_loss = total_loss / self.config.logging_steps
-                        lr = self.scheduler.get_last_lr()[0]
                         
-                        print(f"Step {global_step}: Loss = {avg_loss:.4f}, LR = {lr:.2e}")
+                        print(f"Step {global_step}: Loss = {avg_loss:.4f}, LR = {current_lr:.2e}, Grad Norm = {grad_norm:.4f}")
                         
                         # 内存监控
                         if self.memory_manager and torch.cuda.is_available():
                             try:
                                 memory_info = self.memory_manager.get_memory_snapshot(0)
                                 print(f"GPU内存: {memory_info.allocated_memory}MB / {memory_info.total_memory}MB")
+                                
+                                # 检查内存压力
+                                pressure_level = self.memory_manager.check_memory_pressure(0)
+                                if pressure_level != MemoryPressureLevel.LOW:
+                                    print(f"⚠️ GPU内存压力: {pressure_level.value}")
+                                    
+                            except Exception as e:
+                                pass
+                        
+                        # 显示训练监控摘要
+                        if self.training_monitor:
+                            try:
+                                convergence_status = self.training_monitor.get_convergence_status()
+                                if convergence_status['convergence_score'] > 0:
+                                    print(f"收敛评分: {convergence_status['convergence_score']:.3f}")
+                                    
+                                gpu_summary = self.training_monitor.get_gpu_utilization_summary()
+                                if gpu_summary:
+                                    for gpu_id, metrics in gpu_summary.items():
+                                        print(f"GPU {gpu_id}: 利用率 {metrics.get('avg_utilization', 0):.1f}%, "
+                                              f"内存 {metrics.get('avg_memory_usage', 0):.1f}%")
                             except Exception as e:
                                 pass
                         
@@ -591,9 +736,26 @@ class DirectTrainer:
             
             # Epoch结束统计
             avg_epoch_loss = epoch_loss / epoch_steps if epoch_steps > 0 else 0
-            print(f"Epoch {epoch + 1} 完成，平均损失: {avg_epoch_loss:.4f}")
+            epoch_time = time.time() - epoch_start_time
+            
+            print(f"Epoch {epoch + 1} 完成，平均损失: {avg_epoch_loss:.4f}, 用时: {epoch_time:.1f}秒")
+            
+            # 更新训练监控的epoch信息
+            if self.training_monitor:
+                try:
+                    self.training_monitor.update_epoch(epoch + 1)
+                except Exception as e:
+                    print(f"⚠️ 训练监控epoch更新失败: {e}")
         
         print("✅ 训练完成！")
+        
+        # 停止训练监控
+        if self.training_monitor:
+            try:
+                self.training_monitor.stop_monitoring()
+                print("✅ 训练监控已停止")
+            except Exception as e:
+                print(f"⚠️ 停止训练监控失败: {e}")
         
         # 保存训练统计
         self.save_training_statistics(global_step)
@@ -640,10 +802,20 @@ class DirectTrainer:
         difficulty_dist = {}
         source_file_dist = {}
         crypto_terms_dist = {}
+        chinese_quality_dist = {}
         
         total_instruction_length = 0
         total_output_length = 0
         thinking_count = 0
+        
+        # 中文质量统计
+        total_instruction_quality = 0
+        total_output_quality = 0
+        quality_samples = 0
+        
+        # 密码学术语复杂度统计
+        total_crypto_complexity = 0
+        crypto_samples = 0
         
         for item in self.train_dataset.data:
             # 难度分布
@@ -662,16 +834,57 @@ class DirectTrainer:
             if '<thinking>' in item.get('output', ''):
                 thinking_count += 1
             
+            # 中文质量统计
+            chinese_metrics = item.get('chinese_metrics', {})
+            if chinese_metrics:
+                inst_quality = chinese_metrics.get('instruction_quality', 0)
+                out_quality = chinese_metrics.get('output_quality', 0)
+                if inst_quality > 0 or out_quality > 0:
+                    total_instruction_quality += inst_quality
+                    total_output_quality += out_quality
+                    quality_samples += 1
+                    
+                    # 质量分布
+                    avg_quality = (inst_quality + out_quality) / 2
+                    quality_level = int(avg_quality * 5)  # 0-5级别
+                    chinese_quality_dist[quality_level] = chinese_quality_dist.get(quality_level, 0) + 1
+            
             # 密码学术语统计
             crypto_terms = item.get('crypto_terms', {})
             total_terms = crypto_terms.get('total_terms', 0)
             if total_terms > 0:
                 crypto_terms_dist[total_terms] = crypto_terms_dist.get(total_terms, 0) + 1
+                
+                # 术语复杂度统计
+                inst_complexity = crypto_terms.get('instruction_complexity', 0)
+                out_complexity = crypto_terms.get('output_complexity', 0)
+                if inst_complexity > 0 or out_complexity > 0:
+                    total_crypto_complexity += (inst_complexity + out_complexity) / 2
+                    crypto_samples += 1
         
         print(f"  📈 总样本数: {total_samples}")
         print(f"  📝 平均问题长度: {total_instruction_length / total_samples:.1f} 字符")
         print(f"  📝 平均答案长度: {total_output_length / total_samples:.1f} 字符")
         print(f"  🧠 包含thinking的样本: {thinking_count} ({thinking_count/total_samples*100:.1f}%)")
+        
+        # 中文质量统计
+        if quality_samples > 0:
+            avg_inst_quality = total_instruction_quality / quality_samples
+            avg_out_quality = total_output_quality / quality_samples
+            print(f"  🇨🇳 平均问题质量: {avg_inst_quality:.3f}")
+            print(f"  🇨🇳 平均答案质量: {avg_out_quality:.3f}")
+            
+            if chinese_quality_dist:
+                print(f"  🇨🇳 中文质量分布:")
+                for quality_level in sorted(chinese_quality_dist.keys()):
+                    count = chinese_quality_dist[quality_level]
+                    percentage = count / total_samples * 100
+                    print(f"    质量级别{quality_level}: {count} 样本 ({percentage:.1f}%)")
+        
+        # 密码学术语统计
+        if crypto_samples > 0:
+            avg_crypto_complexity = total_crypto_complexity / crypto_samples
+            print(f"  🔐 平均术语复杂度: {avg_crypto_complexity:.2f}")
         
         print(f"  📊 难度分布:")
         for difficulty in sorted(difficulty_dist.keys()):
@@ -691,8 +904,66 @@ class DirectTrainer:
                 count = crypto_terms_dist[term_count]
                 print(f"    {term_count}个术语: {count} 样本")
     
+    def calculate_chinese_metrics_sample(self, predictions: List[str], references: List[str]) -> Optional[ChineseMetrics]:
+        """计算中文指标样本"""
+        if not hasattr(self, 'chinese_processor') or not self.chinese_processor:
+            return None
+        
+        try:
+            return self.chinese_processor.calculate_chinese_metrics(predictions, references)
+        except Exception as e:
+            print(f"⚠️ 计算中文指标失败: {e}")
+            return None
+    
     def save_training_statistics(self, final_step: int):
         """保存训练统计信息"""
+        # 收集训练监控数据
+        monitoring_stats = {}
+        if self.training_monitor:
+            try:
+                convergence_status = self.training_monitor.get_convergence_status()
+                gpu_summary = self.training_monitor.get_gpu_utilization_summary()
+                
+                monitoring_stats = {
+                    'convergence_status': convergence_status,
+                    'gpu_utilization_summary': gpu_summary,
+                    'final_metrics': self.training_monitor.get_current_metrics().to_dict() if self.training_monitor.get_current_metrics() else {}
+                }
+            except Exception as e:
+                print(f"⚠️ 收集训练监控统计失败: {e}")
+        
+        # 收集数据集质量统计
+        dataset_quality_stats = {}
+        if hasattr(self.train_dataset, 'data'):
+            quality_samples = 0
+            total_chinese_quality = 0
+            total_crypto_complexity = 0
+            crypto_samples = 0
+            
+            for item in self.train_dataset.data:
+                chinese_metrics = item.get('chinese_metrics', {})
+                if chinese_metrics:
+                    inst_quality = chinese_metrics.get('instruction_quality', 0)
+                    out_quality = chinese_metrics.get('output_quality', 0)
+                    if inst_quality > 0 or out_quality > 0:
+                        total_chinese_quality += (inst_quality + out_quality) / 2
+                        quality_samples += 1
+                
+                crypto_terms = item.get('crypto_terms', {})
+                if crypto_terms.get('total_terms', 0) > 0:
+                    inst_complexity = crypto_terms.get('instruction_complexity', 0)
+                    out_complexity = crypto_terms.get('output_complexity', 0)
+                    if inst_complexity > 0 or out_complexity > 0:
+                        total_crypto_complexity += (inst_complexity + out_complexity) / 2
+                        crypto_samples += 1
+            
+            dataset_quality_stats = {
+                'average_chinese_quality': total_chinese_quality / quality_samples if quality_samples > 0 else 0,
+                'average_crypto_complexity': total_crypto_complexity / crypto_samples if crypto_samples > 0 else 0,
+                'quality_samples': quality_samples,
+                'crypto_samples': crypto_samples
+            }
+        
         stats = {
             'training_config': {
                 'model_name': self.config.model_name,
@@ -702,25 +973,38 @@ class DirectTrainer:
                 'learning_rate': self.config.learning_rate,
                 'num_epochs': self.config.num_epochs,
                 'lora_r': self.config.lora_r,
-                'lora_alpha': self.config.lora_alpha
+                'lora_alpha': self.config.lora_alpha,
+                'gradient_accumulation_steps': self.config.gradient_accumulation_steps
             },
             'dataset_stats': {
                 'total_samples': len(self.train_dataset.data),
                 'total_batches': len(self.train_dataloader),
-                'final_training_steps': final_step
+                'final_training_steps': final_step,
+                **dataset_quality_stats
             },
             'model_stats': {
                 'total_parameters': self.model.num_parameters(),
                 'trainable_parameters': sum(p.numel() for p in self.model.parameters() if p.requires_grad)
             },
+            'monitoring_stats': monitoring_stats,
             'training_completed_at': datetime.now().isoformat()
         }
+        
+        # 转换numpy类型以便JSON序列化
+        stats = convert_numpy_types(stats)
         
         stats_file = os.path.join(self.config.output_dir, 'training_statistics.json')
         with open(stats_file, 'w', encoding='utf-8') as f:
             json.dump(stats, f, ensure_ascii=False, indent=2)
         
         print(f"📊 训练统计已保存: {stats_file}")
+        
+        # 保存训练监控的最终报告
+        if self.training_monitor:
+            try:
+                print("📊 生成训练监控最终报告...")
+            except Exception as e:
+                print(f"⚠️ 生成训练监控报告失败: {e}")
     
     def validate_data_quality(self):
         """验证数据质量"""
