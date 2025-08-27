@@ -45,7 +45,7 @@ def test_thinking_data_format():
     
     try:
         # 读取训练数据
-        data_path = "final_demo_output/data/crypto_qa_dataset_train.json"
+        data_path = "data/processed/thinking_training_data.json"
         with open(data_path, 'r', encoding='utf-8') as f:
             data = json.load(f)
         

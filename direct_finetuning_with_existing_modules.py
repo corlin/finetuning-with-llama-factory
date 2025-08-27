@@ -14,6 +14,7 @@ import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 from torch.optim import AdamW
 from torch.optim.lr_scheduler import CosineAnnealingLR
+from torch.utils.tensorboard import SummaryWriter
 from transformers import (
     AutoTokenizer, AutoModelForCausalLM, 
     get_cosine_schedule_with_warmup,
@@ -22,7 +23,7 @@ from transformers import (
 from peft import LoraConfig, get_peft_model, TaskType
 import numpy as np
 from typing import Dict, List, Optional, Any
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 import time
 from datetime import datetime
@@ -69,17 +70,17 @@ class DirectTrainingConfig:
     max_seq_length: int = 2048  # Thinking模型需要更长序列
     batch_size: int = 1  # 4B模型需要更小批次
     gradient_accumulation_steps: int = 8  # 增加梯度累积
-    learning_rate: float = 1e-4  # 更保守的学习率
-    num_epochs: int = 2
-    warmup_ratio: float = 0.1
+    learning_rate: float = 1e-4  # 更保守的学习率 # 降低初始学习率  
+    num_epochs: int = 15
+    warmup_ratio: float = 0.2
     save_steps: int = 50  # 更频繁保存
     logging_steps: int = 5
     
     # LoRA配置 - 针对4B模型优化
     lora_r: int = 240  # 增加rank
     lora_alpha: int = 480  # 增加alpha
-    lora_dropout: float = 0.1
-    target_modules: List[str] = None
+    lora_dropout: float = 0.05 #  0.1 降低过拟合风险  
+    target_modules: List[str] = None # field(default_factory=lambda: ["q_proj", "v_proj"])
     
     # 内存优化 - 4B模型需要更激进的优化
     use_gradient_checkpointing: bool = True
@@ -463,6 +464,9 @@ class DirectTrainer:
             print(f"⚠️ 训练监控器初始化失败: {e}")
             self.training_monitor = None
         
+        # 初始化TensorBoard
+        self.setup_tensorboard()
+        
         # 设置设备
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         print(f"✅ 使用设备: {self.device}")
@@ -484,6 +488,26 @@ class DirectTrainer:
             ]
         )
         self.logger = logging.getLogger(__name__)
+    
+    def setup_tensorboard(self):
+        """设置TensorBoard"""
+        # 创建TensorBoard日志目录
+        self.tensorboard_dir = os.path.join(self.config.output_dir, "tensorboard_logs")
+        os.makedirs(self.tensorboard_dir, exist_ok=True)
+        
+        # 创建带时间戳的运行目录
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        run_name = f"qwen3_4b_thinking_{timestamp}"
+        self.tensorboard_run_dir = os.path.join(self.tensorboard_dir, run_name)
+        
+        # 初始化TensorBoard writer
+        try:
+            self.tensorboard_writer = SummaryWriter(log_dir=self.tensorboard_run_dir)
+            print(f"✅ TensorBoard初始化完成，日志目录: {self.tensorboard_run_dir}")
+            print(f"📊 启动TensorBoard命令: tensorboard --logdir={self.tensorboard_dir}")
+        except Exception as e:
+            print(f"⚠️ TensorBoard初始化失败: {e}")
+            self.tensorboard_writer = None
     
     def load_model_and_tokenizer(self):
         """加载模型和分词器"""
@@ -699,16 +723,51 @@ class DirectTrainer:
                         
                         print(f"Step {global_step}: Loss = {avg_loss:.4f}, LR = {current_lr:.2e}, Grad Norm = {grad_norm:.4f}")
                         
+                        # TensorBoard日志记录
+                        if self.tensorboard_writer:
+                            try:
+                                # 基础训练指标
+                                self.tensorboard_writer.add_scalar('Training/Loss', avg_loss, global_step)
+                                self.tensorboard_writer.add_scalar('Training/Learning_Rate', current_lr, global_step)
+                                self.tensorboard_writer.add_scalar('Training/Gradient_Norm', grad_norm, global_step)
+                                self.tensorboard_writer.add_scalar('Training/Epoch', epoch + 1, global_step)
+                                
+                                # 训练配置信息
+                                self.tensorboard_writer.add_scalar('Config/Batch_Size', self.config.batch_size, global_step)
+                                self.tensorboard_writer.add_scalar('Config/Sequence_Length', self.config.max_seq_length, global_step)
+                                self.tensorboard_writer.add_scalar('Config/Gradient_Accumulation_Steps', self.config.gradient_accumulation_steps, global_step)
+                                
+                            except Exception as e:
+                                print(f"⚠️ TensorBoard日志记录失败: {e}")
+                        
                         # 内存监控
                         if self.memory_manager and torch.cuda.is_available():
                             try:
                                 memory_info = self.memory_manager.get_memory_snapshot(0)
                                 print(f"GPU内存: {memory_info.allocated_memory}MB / {memory_info.total_memory}MB")
                                 
+                                # TensorBoard内存监控
+                                if self.tensorboard_writer:
+                                    self.tensorboard_writer.add_scalar('Memory/GPU_Allocated_MB', memory_info.allocated_memory, global_step)
+                                    self.tensorboard_writer.add_scalar('Memory/GPU_Total_MB', memory_info.total_memory, global_step)
+                                    self.tensorboard_writer.add_scalar('Memory/GPU_Utilization_Percent', 
+                                                                     (memory_info.allocated_memory / memory_info.total_memory) * 100, global_step)
+                                
                                 # 检查内存压力
                                 pressure_level = self.memory_manager.check_memory_pressure(0)
                                 if pressure_level != MemoryPressureLevel.LOW:
                                     print(f"⚠️ GPU内存压力: {pressure_level.value}")
+                                    
+                                    # TensorBoard内存压力记录
+                                    if self.tensorboard_writer:
+                                        pressure_mapping = {
+                                            MemoryPressureLevel.LOW: 0,
+                                            MemoryPressureLevel.MEDIUM: 1,
+                                            MemoryPressureLevel.HIGH: 2,
+                                            MemoryPressureLevel.CRITICAL: 3
+                                        }
+                                        self.tensorboard_writer.add_scalar('Memory/Pressure_Level', 
+                                                                         pressure_mapping.get(pressure_level, 0), global_step)
                                     
                             except Exception as e:
                                 pass
@@ -720,11 +779,29 @@ class DirectTrainer:
                                 if convergence_status['convergence_score'] > 0:
                                     print(f"收敛评分: {convergence_status['convergence_score']:.3f}")
                                     
+                                    # TensorBoard收敛监控
+                                    if self.tensorboard_writer:
+                                        self.tensorboard_writer.add_scalar('Monitoring/Convergence_Score', 
+                                                                         convergence_status['convergence_score'], global_step)
+                                        if 'loss_trend' in convergence_status:
+                                            self.tensorboard_writer.add_scalar('Monitoring/Loss_Trend', 
+                                                                             convergence_status['loss_trend'], global_step)
+                                    
                                 gpu_summary = self.training_monitor.get_gpu_utilization_summary()
                                 if gpu_summary:
                                     for gpu_id, metrics in gpu_summary.items():
                                         print(f"GPU {gpu_id}: 利用率 {metrics.get('avg_utilization', 0):.1f}%, "
                                               f"内存 {metrics.get('avg_memory_usage', 0):.1f}%")
+                                        
+                                        # TensorBoard GPU监控
+                                        if self.tensorboard_writer:
+                                            self.tensorboard_writer.add_scalar(f'GPU_{gpu_id}/Utilization_Percent', 
+                                                                             metrics.get('avg_utilization', 0), global_step)
+                                            self.tensorboard_writer.add_scalar(f'GPU_{gpu_id}/Memory_Usage_Percent', 
+                                                                             metrics.get('avg_memory_usage', 0), global_step)
+                                            if 'temperature' in metrics:
+                                                self.tensorboard_writer.add_scalar(f'GPU_{gpu_id}/Temperature_C', 
+                                                                                 metrics['temperature'], global_step)
                             except Exception as e:
                                 pass
                         
@@ -740,6 +817,20 @@ class DirectTrainer:
             
             print(f"Epoch {epoch + 1} 完成，平均损失: {avg_epoch_loss:.4f}, 用时: {epoch_time:.1f}秒")
             
+            # TensorBoard Epoch统计
+            if self.tensorboard_writer:
+                try:
+                    self.tensorboard_writer.add_scalar('Epoch/Average_Loss', avg_epoch_loss, epoch + 1)
+                    self.tensorboard_writer.add_scalar('Epoch/Duration_Seconds', epoch_time, epoch + 1)
+                    self.tensorboard_writer.add_scalar('Epoch/Steps_Per_Second', epoch_steps / epoch_time if epoch_time > 0 else 0, epoch + 1)
+                    
+                    # 添加epoch分隔线到TensorBoard
+                    self.tensorboard_writer.add_text('Training/Epoch_Summary', 
+                                                    f'Epoch {epoch + 1} completed with average loss: {avg_epoch_loss:.4f}', 
+                                                    global_step)
+                except Exception as e:
+                    print(f"⚠️ TensorBoard Epoch日志记录失败: {e}")
+            
             # 更新训练监控的epoch信息
             if self.training_monitor:
                 try:
@@ -748,6 +839,25 @@ class DirectTrainer:
                     print(f"⚠️ 训练监控epoch更新失败: {e}")
         
         print("✅ 训练完成！")
+        
+        # 关闭TensorBoard
+        if self.tensorboard_writer:
+            try:
+                # 添加训练完成标记
+                self.tensorboard_writer.add_text('Training/Status', 
+                                                f'Training completed at step {global_step}', 
+                                                global_step)
+                
+                # 添加最终统计信息
+                final_avg_loss = total_loss / self.config.logging_steps if total_loss > 0 else avg_epoch_loss
+                self.tensorboard_writer.add_scalar('Training/Final_Loss', final_avg_loss, global_step)
+                
+                # 关闭writer
+                self.tensorboard_writer.close()
+                print(f"✅ TensorBoard日志已保存到: {self.tensorboard_run_dir}")
+                print(f"📊 查看训练曲线: tensorboard --logdir={self.tensorboard_dir}")
+            except Exception as e:
+                print(f"⚠️ 关闭TensorBoard失败: {e}")
         
         # 停止训练监控
         if self.training_monitor:
@@ -903,6 +1013,73 @@ class DirectTrainer:
             for term_count in sorted(crypto_terms_dist.keys()):
                 count = crypto_terms_dist[term_count]
                 print(f"    {term_count}个术语: {count} 样本")
+        
+        # TensorBoard数据集统计日志
+        if self.tensorboard_writer:
+            try:
+                # 基础统计
+                self.tensorboard_writer.add_scalar('Dataset/Total_Samples', total_samples, 0)
+                self.tensorboard_writer.add_scalar('Dataset/Avg_Instruction_Length', total_instruction_length / total_samples, 0)
+                self.tensorboard_writer.add_scalar('Dataset/Avg_Output_Length', total_output_length / total_samples, 0)
+                self.tensorboard_writer.add_scalar('Dataset/Thinking_Samples_Percent', thinking_count/total_samples*100, 0)
+                
+                # 中文质量统计
+                if quality_samples > 0:
+                    self.tensorboard_writer.add_scalar('Dataset/Avg_Instruction_Quality', total_instruction_quality / quality_samples, 0)
+                    self.tensorboard_writer.add_scalar('Dataset/Avg_Output_Quality', total_output_quality / quality_samples, 0)
+                
+                # 密码学术语复杂度
+                if crypto_samples > 0:
+                    self.tensorboard_writer.add_scalar('Dataset/Avg_Crypto_Complexity', total_crypto_complexity / crypto_samples, 0)
+                
+                # 难度分布直方图
+                difficulty_values = []
+                difficulty_counts = []
+                for difficulty in sorted(difficulty_dist.keys()):
+                    difficulty_values.append(difficulty)
+                    difficulty_counts.append(difficulty_dist[difficulty])
+                
+                if difficulty_values:
+                    # 创建难度分布的直方图数据
+                    for i, (diff, count) in enumerate(zip(difficulty_values, difficulty_counts)):
+                        self.tensorboard_writer.add_scalar(f'Dataset/Difficulty_{diff}_Count', count, 0)
+                        self.tensorboard_writer.add_scalar(f'Dataset/Difficulty_{diff}_Percent', count/total_samples*100, 0)
+                
+                # 中文质量分布
+                for quality_level, count in chinese_quality_dist.items():
+                    self.tensorboard_writer.add_scalar(f'Dataset/Quality_Level_{quality_level}_Count', count, 0)
+                    self.tensorboard_writer.add_scalar(f'Dataset/Quality_Level_{quality_level}_Percent', count/total_samples*100, 0)
+                
+                # 密码学术语分布
+                for term_count, count in crypto_terms_dist.items():
+                    self.tensorboard_writer.add_scalar(f'Dataset/Crypto_Terms_{term_count}_Count', count, 0)
+                
+                # 添加数据集摘要文本
+                dataset_summary = f"""
+                数据集统计摘要:
+                - 总样本数: {total_samples}
+                - 平均问题长度: {total_instruction_length / total_samples:.1f} 字符
+                - 平均答案长度: {total_output_length / total_samples:.1f} 字符
+                - Thinking样本比例: {thinking_count/total_samples*100:.1f}%
+                """
+                
+                if quality_samples > 0:
+                    dataset_summary += f"""
+                - 平均问题质量: {total_instruction_quality / quality_samples:.3f}
+                - 平均答案质量: {total_output_quality / quality_samples:.3f}
+                    """
+                
+                if crypto_samples > 0:
+                    dataset_summary += f"""
+                - 平均术语复杂度: {total_crypto_complexity / crypto_samples:.2f}
+                    """
+                
+                self.tensorboard_writer.add_text('Dataset/Summary', dataset_summary, 0)
+                
+                print("✅ 数据集统计已记录到TensorBoard")
+                
+            except Exception as e:
+                print(f"⚠️ TensorBoard数据集统计记录失败: {e}")
     
     def calculate_chinese_metrics_sample(self, predictions: List[str], references: List[str]) -> Optional[ChineseMetrics]:
         """计算中文指标样本"""
@@ -998,6 +1175,60 @@ class DirectTrainer:
             json.dump(stats, f, ensure_ascii=False, indent=2)
         
         print(f"📊 训练统计已保存: {stats_file}")
+        
+        # TensorBoard最终统计记录
+        if self.tensorboard_writer:
+            try:
+                # 训练配置
+                config_stats = stats['training_config']
+                for key, value in config_stats.items():
+                    if isinstance(value, (int, float)):
+                        self.tensorboard_writer.add_scalar(f'Final_Config/{key}', value, final_step)
+                
+                # 数据集统计
+                dataset_stats = stats['dataset_stats']
+                for key, value in dataset_stats.items():
+                    if isinstance(value, (int, float)):
+                        self.tensorboard_writer.add_scalar(f'Final_Dataset/{key}', value, final_step)
+                
+                # 模型统计
+                model_stats = stats['model_stats']
+                for key, value in model_stats.items():
+                    if isinstance(value, (int, float)):
+                        self.tensorboard_writer.add_scalar(f'Final_Model/{key}', value, final_step)
+                
+                # 监控统计
+                if monitoring_stats:
+                    convergence_status = monitoring_stats.get('convergence_status', {})
+                    if isinstance(convergence_status, dict):
+                        for key, value in convergence_status.items():
+                            if isinstance(value, (int, float)):
+                                self.tensorboard_writer.add_scalar(f'Final_Monitoring/{key}', value, final_step)
+                    
+                    gpu_summary = monitoring_stats.get('gpu_utilization_summary', {})
+                    if isinstance(gpu_summary, dict):
+                        for gpu_id, metrics in gpu_summary.items():
+                            if isinstance(metrics, dict):
+                                for metric_name, metric_value in metrics.items():
+                                    if isinstance(metric_value, (int, float)):
+                                        self.tensorboard_writer.add_scalar(f'Final_GPU_{gpu_id}/{metric_name}', metric_value, final_step)
+                
+                # 添加最终训练摘要
+                final_summary = f"""
+                训练完成摘要:
+                - 最终步数: {final_step}
+                - 总样本数: {stats['dataset_stats']['total_samples']}
+                - 总参数量: {stats['model_stats']['total_parameters']:,}
+                - 可训练参数: {stats['model_stats']['trainable_parameters']:,}
+                - 完成时间: {stats['training_completed_at']}
+                """
+                
+                self.tensorboard_writer.add_text('Training/Final_Summary', final_summary, final_step)
+                
+                print("✅ 最终统计已记录到TensorBoard")
+                
+            except Exception as e:
+                print(f"⚠️ TensorBoard最终统计记录失败: {e}")
         
         # 保存训练监控的最终报告
         if self.training_monitor:
@@ -1204,8 +1435,12 @@ def main():
     if success:
         print("🎉 微调成功完成！")
         print(f"📁 输出目录: {config.output_dir}")
+        print(f"� Te用nsorBoard日志: {os.path.join(config.output_dir, 'tensorboard_logs')}")
+        print("\n📋 查看训练曲线:")
+        print(f"   tensorboard --logdir={os.path.join(config.output_dir, 'tensorboard_logs')}")
         print("\n📋 使用uv运行命令:")
         print(f"   uv run python {__file__}")
+        print("\n💡 提示: 在浏览器中打开 http://localhost:6006 查看TensorBoard")
     else:
         print("❌ 微调失败")
     
