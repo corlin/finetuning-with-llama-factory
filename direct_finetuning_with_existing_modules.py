@@ -70,9 +70,9 @@ class DirectTrainingConfig:
     max_seq_length: int = 2048  # Thinking模型需要更长序列
     batch_size: int = 1  # 4B模型需要更小批次
     gradient_accumulation_steps: int = 8  # 增加梯度累积
-    learning_rate: float = 1e-4  # 更保守的学习率 # 降低初始学习率  
+    learning_rate: float = 5e-4  # 更保守的学习率 # 降低初始学习率  
     num_epochs: int = 15
-    warmup_ratio: float = 0.2
+    warmup_ratio: float = 0.1
     save_steps: int = 50  # 更频繁保存
     logging_steps: int = 5
     
