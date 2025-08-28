@@ -70,8 +70,8 @@ class DirectTrainingConfig:
     max_seq_length: int = 2048  # Thinking模型需要更长序列
     batch_size: int = 1  # 4B模型需要更小批次
     gradient_accumulation_steps: int = 8  # 增加梯度累积
-    learning_rate: float = 5e-4  # 更保守的学习率 # 降低初始学习率  
-    num_epochs: int = 15
+    learning_rate: float = 1e-4  # 更保守的学习率 # 降低初始学习率  
+    num_epochs: int = 50
     warmup_ratio: float = 0.1
     save_steps: int = 50  # 更频繁保存
     logging_steps: int = 5
@@ -79,7 +79,7 @@ class DirectTrainingConfig:
     # LoRA配置 - 针对4B模型优化
     lora_r: int = 240  # 增加rank
     lora_alpha: int = 480  # 增加alpha
-    lora_dropout: float = 0.05 #  0.1 降低过拟合风险  
+    lora_dropout: float = 0.1 #  0.1 降低过拟合风险  
     target_modules: List[str] = None # field(default_factory=lambda: ["q_proj", "v_proj"])
     
     # 内存优化 - 4B模型需要更激进的优化

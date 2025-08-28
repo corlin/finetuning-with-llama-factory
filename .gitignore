@@ -177,7 +177,10 @@ uv.lock
 *.pickle
 
 # Dataset files
-data/
+data/eval/
+data/processed/
+data/test/
+data/train/
 datasets/
 *.csv
 *.json

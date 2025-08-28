@@ -1,0 +1,32 @@
+# 密码学领域评估配置示例
+
+industry_domain: "cryptography"
+
+evaluation_dimensions:
+  - "professional_knowledge"
+  - "terminology_accuracy" 
+  - "logical_reasoning"
+  - "chinese_processing"
+
+weight_config:
+  professional_knowledge: 0.3
+  terminology_accuracy: 0.3
+  logical_reasoning: 0.2
+  chinese_processing: 0.2
+
+threshold_config:
+  professional_knowledge: 0.8
+  terminology_accuracy: 0.85
+  logical_reasoning: 0.75
+  chinese_processing: 0.8
+
+expert_review_required: true
+batch_size: 20
+timeout_seconds: 600
+retry_count: 3
+language: "zh"
+
+model_config:
+  max_tokens: 2048
+  temperature: 0.1
+  top_p: 0.9
