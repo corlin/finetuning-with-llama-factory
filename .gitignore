@@ -358,3 +358,7 @@ logs/
 qwen3_4b_thinking_output/
 
 test_pipeline_output/
+src/__pycache__/__init__.cpython-312.pyc
+src/__pycache__/__init__.cpython-312.pyc
+src/__pycache__/config_manager.cpython-312.pyc
+src/__pycache__/data_models.cpython-312.pyc
