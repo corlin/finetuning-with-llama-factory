@@ -35,12 +35,21 @@ class ExpertEvaluationError(Exception):
 class ModelLoadError(ExpertEvaluationError):
     """模型加载失败异常"""
     
-    def __init__(self, model_path: str, reason: str, 
+    def __init__(self, message: str, model_path: Optional[str] = None, 
                  suggestions: Optional[List[str]] = None):
-        message = f"模型加载失败: {model_path} - {reason}"
+        # 兼容旧的调用方式
+        if model_path and not message.startswith("模型加载失败"):
+            # 如果第一个参数是model_path，第二个是reason
+            reason = message
+            message = f"模型加载失败: {model_path} - {reason}"
+            self.model_path = model_path
+            self.reason = reason
+        else:
+            # 新的调用方式，第一个参数直接是message
+            self.model_path = model_path or "unknown"
+            self.reason = message
+        
         super().__init__(message, "MODEL_LOAD_ERROR")
-        self.model_path = model_path
-        self.reason = reason
         self.suggestions = suggestions or [
             "检查模型路径是否正确",
             "确认模型文件完整性",

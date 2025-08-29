@@ -36,6 +36,7 @@ dependencies = [
     "rich>=14.1.0",
     "llamafactory>=0.9.3",
     "huggingface-hub[hf-xet]>=0.34.4",
+    "sphinx>=8.2.3",
 ]
 readme = "README.md"
 requires-python = ">= 3.12"

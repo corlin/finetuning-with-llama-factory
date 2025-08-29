@@ -23,6 +23,7 @@ from .interfaces import (
 )
 
 # Import concrete implementations
+from .engine import ExpertEvaluationEngine
 from .report_generator import EvaluationReportGenerator
 from .improvement_advisor import ImprovementAdvisor
 
@@ -70,6 +71,7 @@ __all__ = [
     "EvaluationReportGeneratorInterface",
     
     # 具体实现
+    "ExpertEvaluationEngine",
     "EvaluationReportGenerator",
     "ImprovementAdvisor",
     

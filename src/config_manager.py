@@ -11,6 +11,7 @@ from dataclasses import dataclass, asdict, fields
 from pathlib import Path
 from src.model_config import QwenModelConfig, LoRATrainingConfig, ChineseProcessingConfig
 from src.gpu_utils import SystemRequirements
+from src.expert_evaluation.config import ExpertEvaluationConfig
 
 
 @dataclass
@@ -178,6 +179,7 @@ class ConfigManager:
         self.data_config = DataConfig()
         self.multigpu_config = MultiGPUConfig()
         self.system_config = SystemConfig()
+        self.expert_evaluation_config = ExpertEvaluationConfig()
         
         # 加载配置
         self.load_config()
@@ -214,16 +216,26 @@ class ConfigManager:
             "data": self.data_config,
             "multigpu": self.multigpu_config,
             "system": self.system_config,
+            "expert_evaluation": self.expert_evaluation_config,
         }
         
         for section_name, section_data in config_data.items():
             if section_name in config_mapping and isinstance(section_data, dict):
                 config_obj = config_mapping[section_name]
-                for key, value in section_data.items():
-                    if hasattr(config_obj, key):
-                        setattr(config_obj, key, value)
-                    else:
-                        self.logger.warning(f"未知配置项: {section_name}.{key}")
+                
+                # 特殊处理专家评估配置
+                if section_name == "expert_evaluation":
+                    try:
+                        self.expert_evaluation_config = ExpertEvaluationConfig.from_dict(section_data)
+                    except Exception as e:
+                        self.logger.error(f"专家评估配置加载失败: {e}")
+                        self.expert_evaluation_config = ExpertEvaluationConfig()
+                else:
+                    for key, value in section_data.items():
+                        if hasattr(config_obj, key):
+                            setattr(config_obj, key, value)
+                        else:
+                            self.logger.warning(f"未知配置项: {section_name}.{key}")
     
     def _update_from_env(self) -> None:
         """从环境变量更新配置"""
@@ -258,6 +270,7 @@ class ConfigManager:
             "data": asdict(self.data_config),
             "multigpu": asdict(self.multigpu_config),
             "system": asdict(self.system_config),
+            "expert_evaluation": self.expert_evaluation_config.to_dict(),
         }
         
         config_path = self.config_dir / self.config_file
@@ -281,6 +294,7 @@ class ConfigManager:
             "data": self.data_config,
             "multigpu": self.multigpu_config,
             "system": self.system_config,
+            "expert_evaluation": self.expert_evaluation_config,
         }
     
     def validate_configs(self) -> Dict[str, bool]:
@@ -328,6 +342,12 @@ class ConfigManager:
         if self.lora_config.r <= 0 or self.lora_config.lora_alpha <= 0:
             validation_results["lora_params_valid"] = False
             self.logger.error("LoRA参数r和alpha必须大于0")
+        
+        # 验证专家评估配置
+        expert_validation = self.expert_evaluation_config.validate_config()
+        validation_results["expert_evaluation_valid"] = all(expert_validation.values())
+        if not validation_results["expert_evaluation_valid"]:
+            self.logger.error(f"专家评估配置验证失败: {expert_validation}")
         
         return validation_results
     
@@ -389,6 +409,104 @@ class ConfigManager:
         })
         
         return args
+    
+    def reload_config(self) -> bool:
+        """热重载配置文件"""
+        try:
+            old_config = self.get_all_configs().copy()
+            self.load_config()
+            new_config = self.get_all_configs()
+            
+            # 检查配置是否有变化
+            changes_detected = False
+            for section_name, new_section in new_config.items():
+                if section_name in old_config:
+                    if str(new_section) != str(old_config[section_name]):
+                        changes_detected = True
+                        self.logger.info(f"配置节 '{section_name}' 已更新")
+                else:
+                    changes_detected = True
+                    self.logger.info(f"新增配置节 '{section_name}'")
+            
+            if changes_detected:
+                self.logger.info("配置热重载完成")
+                return True
+            else:
+                self.logger.info("配置无变化")
+                return False
+                
+        except Exception as e:
+            self.logger.error(f"配置热重载失败: {e}")
+            return False
+    
+    def update_expert_evaluation_config(self, 
+                                      config_updates: Dict[str, Any]) -> bool:
+        """动态更新专家评估配置"""
+        try:
+            # 获取当前配置字典
+            current_config = self.expert_evaluation_config.to_dict()
+            
+            # 应用更新
+            for key, value in config_updates.items():
+                if key in current_config:
+                    current_config[key] = value
+                    self.logger.info(f"更新专家评估配置: {key} = {value}")
+                else:
+                    self.logger.warning(f"未知的专家评估配置项: {key}")
+            
+            # 重新创建配置对象
+            self.expert_evaluation_config = ExpertEvaluationConfig.from_dict(current_config)
+            
+            # 验证更新后的配置
+            validation_result = self.expert_evaluation_config.validate_config()
+            if not all(validation_result.values()):
+                self.logger.error(f"配置更新后验证失败: {validation_result}")
+                return False
+            
+            self.logger.info("专家评估配置动态更新成功")
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"专家评估配置动态更新失败: {e}")
+            return False
+    
+    def get_expert_evaluation_config(self) -> ExpertEvaluationConfig:
+        """获取专家评估配置"""
+        return self.expert_evaluation_config
+    
+    def set_expert_evaluation_config(self, config: ExpertEvaluationConfig) -> bool:
+        """设置专家评估配置"""
+        try:
+            # 验证配置
+            validation_result = config.validate_config()
+            if not all(validation_result.values()):
+                self.logger.error(f"专家评估配置验证失败: {validation_result}")
+                return False
+            
+            self.expert_evaluation_config = config
+            self.logger.info("专家评估配置设置成功")
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"专家评估配置设置失败: {e}")
+            return False
+    
+    def create_expert_evaluation_config_template(self, 
+                                               output_path: Optional[str] = None) -> str:
+        """创建专家评估配置模板文件"""
+        template_config = ExpertEvaluationConfig()
+        
+        if output_path is None:
+            output_path = self.config_dir / "expert_evaluation_template.json"
+        
+        try:
+            template_config.save_to_file(str(output_path))
+            self.logger.info(f"专家评估配置模板已创建: {output_path}")
+            return str(output_path)
+            
+        except Exception as e:
+            self.logger.error(f"创建专家评估配置模板失败: {e}")
+            raise
 
 
 def create_default_config_file():

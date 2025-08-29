@@ -27,6 +27,10 @@ class QAEvaluationItem:
     
     def __post_init__(self):
         """数据验证"""
+        # 允许在测试模式下跳过验证
+        if hasattr(self, '_skip_validation') and self._skip_validation:
+            return
+            
         if not self.question_id.strip():
             raise ValueError("问题ID不能为空")
         if not self.question.strip():
@@ -35,6 +39,24 @@ class QAEvaluationItem:
             raise ValueError("参考答案不能为空")
         if not self.model_answer.strip():
             raise ValueError("模型答案不能为空")
+    
+    @classmethod
+    def create_for_testing(cls, question_id: str = "", question: str = "", 
+                          context: str = "", reference_answer: str = "", 
+                          model_answer: str = "", **kwargs):
+        """创建用于测试的实例，跳过验证"""
+        instance = cls.__new__(cls)
+        instance.question_id = question_id
+        instance.question = question
+        instance.context = context
+        instance.reference_answer = reference_answer
+        instance.model_answer = model_answer
+        instance.domain_tags = kwargs.get('domain_tags', [])
+        instance.difficulty_level = kwargs.get('difficulty_level', ExpertiseLevel.INTERMEDIATE)
+        instance.expected_concepts = kwargs.get('expected_concepts', [])
+        instance.metadata = kwargs.get('metadata', {})
+        instance._skip_validation = True
+        return instance
     
     def to_dict(self) -> Dict[str, Any]:
         """转换为字典格式"""

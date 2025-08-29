@@ -362,3 +362,8 @@ src/__pycache__/__init__.cpython-312.pyc
 src/__pycache__/__init__.cpython-312.pyc
 src/__pycache__/config_manager.cpython-312.pyc
 src/__pycache__/data_models.cpython-312.pyc
+
+quick_demo_output/
+simple_demo_output/
+comprehensive_demo_output/
+comprehensive_demo_output_fixed/

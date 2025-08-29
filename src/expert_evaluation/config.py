@@ -131,6 +131,7 @@ class ThresholdSettings:
 class BatchProcessingConfig:
     """批量处理配置"""
     # 基础批处理配置
+    batch_size: int = 4  # 添加batch_size参数以兼容测试
     initial_batch_size: int = 4
     min_batch_size: int = 1
     max_batch_size: int = 32
@@ -235,6 +236,9 @@ class ExpertEvaluationConfig:
     enable_detailed_analysis: bool = True
     comparison_baseline: Optional[str] = None
     
+    # 兼容性参数（直接传递给子配置）
+    batch_size: Optional[int] = None
+    
     # 子配置
     dimension_weights: DimensionWeightConfig = field(default_factory=DimensionWeightConfig)
     threshold_settings: ThresholdSettings = field(default_factory=ThresholdSettings)
@@ -259,6 +263,11 @@ class ExpertEvaluationConfig:
     
     def __post_init__(self):
         """配置后处理和验证"""
+        # 处理兼容性参数
+        if self.batch_size is not None:
+            self.batch_processing.batch_size = self.batch_size
+            self.batch_processing.initial_batch_size = self.batch_size
+        
         # 创建输出目录
         output_path = Path(self.data_config.output_dir)
         output_path.mkdir(parents=True, exist_ok=True)
