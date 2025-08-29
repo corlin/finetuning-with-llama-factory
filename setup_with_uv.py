@@ -105,7 +105,7 @@ def run_basic_tests():
 
 def main():
     """主函数"""
-    print("=== LLaMA Factory Finetuning - uv环境设置 ===")
+    print("=== Qwen3-4B-Thinking 微调系统 - uv环境设置 ===")
     print("专门针对Qwen3-4B-Thinking模型的微调环境")
     print()
     

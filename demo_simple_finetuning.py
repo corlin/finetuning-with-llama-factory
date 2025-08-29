@@ -9,7 +9,7 @@
 - 自动加载和处理 data/raw 中的所有数据文件
 - 智能数据预处理和格式转换
 - 自动配置 GPU 并行策略和 LoRA 参数
-- 生成 LLaMA Factory 兼容的配置文件
+- 生成标准训练配置文件
 - 提供训练脚本和配置
 
 使用方法：
@@ -277,9 +277,9 @@ class SimpleFinetuningDemo:
             train_examples = self.training_data[:split_idx]
             val_examples = self.training_data[split_idx:] if split_idx < len(self.training_data) else []
             
-            # 转换为LLaMA Factory格式
-            train_data = [example.to_llama_factory_format() for example in train_examples]
-            val_data = [example.to_llama_factory_format() for example in val_examples] if val_examples else []
+            # 转换为标准训练格式
+            train_data = [example.to_training_format() for example in train_examples]
+            val_data = [example.to_training_format() for example in val_examples] if val_examples else []
             
             # 保存训练数据
             train_file = self.output_dir / "train_data.json"
@@ -464,7 +464,7 @@ class SimpleFinetuningDemo:
         try:
             script_content = f'''#!/usr/bin/env python3
 """
-LLaMA Factory训练脚本
+PyTorch训练脚本
 自动生成于: {datetime.now().isoformat()}
 """
 
@@ -509,24 +509,25 @@ def main():
         # 设置环境变量
         os.environ["DATASET_INFO_FILE"] = dataset_info_file
         
-        # 检查LLaMA Factory是否可用
+        # 使用原生PyTorch训练
         try:
-            # 这里应该导入并调用LLaMA Factory的训练函数
-            # from llamafactory.train.tuner import run_exp
-            # run_exp(config)
+            # 这里应该调用项目的训练函数
+            # from src.training_pipeline import TrainingPipelineOrchestrator
+            # orchestrator = TrainingPipelineOrchestrator(config)
+            # orchestrator.run_training()
             
             logger.info("注意: 这是一个演示脚本")
             logger.info("要进行实际训练，请:")
-            logger.info("1. 安装 LLaMA Factory: pip install llamafactory")
-            logger.info("2. 取消注释上面的导入和调用代码")
-            logger.info("3. 或者使用 LLaMA Factory CLI:")
-            logger.info(f"   llamafactory-cli train {{config_file}}")
+            logger.info("1. 使用项目训练脚本: uv run python scripts/train.py")
+            logger.info("2. 或者取消注释上面的导入和调用代码")
+            logger.info("3. 配置文件路径:")
+            logger.info(f"   {{config_file}}")
             
             return True
             
         except ImportError as e:
-            logger.error(f"LLaMA Factory未安装: {{e}}")
-            logger.info("请安装 LLaMA Factory: pip install llamafactory")
+            logger.error(f"训练模块导入失败: {{e}}")
+            logger.info("请检查项目依赖安装")
             return False
         
     except Exception as e:
@@ -616,9 +617,9 @@ if __name__ == "__main__":
                 },
                 "next_steps": [
                     "检查生成的配置文件和数据文件",
-                    "安装 LLaMA Factory: pip install llamafactory",
+                    "使用项目训练脚本: uv run python scripts/train.py",
                     "运行训练脚本: python train.py",
-                    "或使用 CLI: llamafactory-cli train training_config.yaml"
+                    "或使用配置文件: --config training_config.yaml"
                 ]
             }
             
@@ -736,9 +737,9 @@ if __name__ == "__main__":
         
         print(f"\n🚀 下一步操作:")
         print(f"   1. 检查生成的配置文件: {config_file}")
-        print(f"   2. 安装 LLaMA Factory: pip install llamafactory")
+        print(f"   2. 使用项目训练脚本: uv run python scripts/train.py")
         print(f"   3. 运行训练: python {script_file}")
-        print(f"   4. 或使用 CLI: llamafactory-cli train {config_file}")
+        print(f"   4. 或使用配置: --config {config_file}")
         
         print("\n" + "="*60)
 

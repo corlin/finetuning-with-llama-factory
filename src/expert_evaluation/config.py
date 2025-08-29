@@ -184,7 +184,7 @@ class ReportConfig:
 class ModelConfig:
     """模型配置"""
     model_path: str = ""
-    model_type: str = "auto"  # auto, transformers, llamafactory
+    model_type: str = "auto"  # auto, transformers, pytorch
     device: str = "auto"  # auto, cpu, cuda, cuda:0
     
     # 加载配置

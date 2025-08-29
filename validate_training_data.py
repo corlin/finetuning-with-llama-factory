@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-验证生成的LLaMA Factory训练数据格式
+验证生成的训练数据格式
 """
 
 import json
@@ -55,7 +55,7 @@ def validate_direct_training_format(data_file: str) -> dict:
 
 def main():
     """主函数"""
-    print("=== LLaMA Factory训练数据验证 ===\n")
+    print("=== 训练数据验证 ===\n")
     
     data_dir = "data/processed"
     
@@ -119,7 +119,7 @@ def main():
         else:
             print(f"   ❌ 主文件验证失败: {result['error']}")
     
-    print(f"\n🎉 验证完成！数据已准备好用于LLaMA Factory训练")
+    print(f"\n🎉 验证完成！数据已准备好用于模型训练")
 
 if __name__ == "__main__":
     main()

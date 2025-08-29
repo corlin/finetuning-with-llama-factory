@@ -1,5 +1,5 @@
 """
-LLaMA Factory Finetuning System for Qwen3-4B-Thinking Model
+Qwen3-4B-Thinking Model Finetuning System
 专门针对中文密码学领域的模型微调系统
 """
 

@@ -592,7 +592,7 @@ class ConfigManager:
             # 添加注释信息
             config_dict = template_config.to_dict()
             config_dict["_template_info"] = {
-                "description": "LLaMA Factory微调系统配置模板",
+                "description": "Qwen3-4B-Thinking微调系统配置模板",
                 "version": "1.0",
                 "created_at": datetime.now().isoformat(),
                 "usage": "请根据实际需求修改配置参数"

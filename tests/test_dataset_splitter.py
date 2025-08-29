@@ -601,7 +601,7 @@ class TestSplitSaveLoad:
             with open(train_file, 'r', encoding='utf-8') as f:
                 train_data = json.load(f)
             
-            # 验证LLaMA Factory格式
+            # 验证标准训练格式
             assert isinstance(train_data, list)
             if train_data:
                 sample = train_data[0]

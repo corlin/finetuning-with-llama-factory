@@ -254,7 +254,7 @@ def main():
     print("="*60)
     print(f"✅ 成功创建 {len(thinking_examples)} 个高质量thinking样例")
     print(f"✅ 所有thinking格式验证通过")
-    print(f"✅ LLaMA Factory格式转换正常")
+    print(f"✅ 标准训练格式转换正常")
     print(f"✅ 数据质量显著提升，包含深度推理过程")
     print(f"\n🎉 增强数据测试完成！数据已准备就绪用于训练。")
 

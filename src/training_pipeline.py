@@ -429,7 +429,7 @@ class TrainingPipelineOrchestrator:
             
             self.state.update_stage_progress(PipelineStage.DATA_PREPARATION, 20.0)
             
-            # 直接准备训练数据，不依赖LlamaFactory
+            # 直接准备训练数据，使用原生PyTorch
             self.data_files = self._prepare_direct_training_data(
                 self.training_data,
                 str(data_output_dir),
@@ -903,7 +903,7 @@ class TrainingPipelineOrchestrator:
                                     output_dir: str,
                                     dataset_name: str) -> Dict[str, str]:
         """
-        直接准备训练数据，不依赖LlamaFactory
+        直接准备训练数据，使用原生PyTorch
         """
         import json
         from pathlib import Path
@@ -1087,7 +1087,7 @@ class TrainingPipelineOrchestrator:
         """
         script_content = '''#!/usr/bin/env python3
 """
-直接训练脚本 - 不依赖LlamaFactory
+直接训练脚本 - 使用原生PyTorch
 自动生成于: {datetime.now().isoformat()}
 """
 

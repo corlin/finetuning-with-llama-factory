@@ -1,7 +1,7 @@
 [project]
-name = "llama-factory-finetuning"
+name = "qwen3-4b-thinking-finetuning"
 version = "0.1.0"
-description = "LLaMA Factory based finetuning system for Qwen3-4B-Thinking model with Chinese cryptography focus"
+description = "Qwen3-4B-Thinking model finetuning system with Chinese cryptography focus"
 authors = [
     {name = "AI Assistant", email = "assistant@example.com"},
 ]
@@ -34,7 +34,7 @@ dependencies = [
     "matplotlib>=3.10.5",
     "seaborn>=0.13.2",
     "rich>=14.1.0",
-    "llamafactory>=0.9.3",
+
     "huggingface-hub[hf-xet]>=0.34.4",
     "sphinx>=8.2.3",
 ]

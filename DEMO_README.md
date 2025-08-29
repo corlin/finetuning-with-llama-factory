@@ -1,13 +1,13 @@
 # 综合微调演示程序
 
-基于当前已完成的功能，使用 `data/raw` 数据，通过 LLaMA Factory 进行模型微调的完整演示程序。
+基于当前已完成的功能，使用 `data/raw` 数据进行模型微调的完整演示程序。
 
 ## 功能特性
 
 - ✅ 自动加载和处理 `data/raw` 中的所有数据文件
 - ✅ 智能数据预处理和格式转换
 - ✅ 自动配置 GPU 并行策略和 LoRA 参数
-- ✅ 集成 LLaMA Factory 进行模型微调
+- ✅ 集成原生PyTorch进行模型微调
 - ✅ 实时训练监控和进度跟踪
 - ✅ 完整的训练流水线管理
 
@@ -72,7 +72,7 @@ demo_output/
 │   ├── demo_dataset_val.json
 │   └── dataset_info.json
 ├── configs/                 # 生成的配置文件
-│   ├── llamafactory_config_*.yaml
+│   ├── training_config_*.yaml
 │   └── dataset_info.json
 ├── pipeline/                # 训练流水线输出
 │   ├── checkpoints/
@@ -86,7 +86,7 @@ demo_output/
 
 1. **数据加载**: 自动扫描 `data/raw` 目录中的所有 `.md` 文件
 2. **内容解析**: 解析 QA 对，提取问题、答案和 thinking 过程
-3. **格式转换**: 转换为 LLaMA Factory 兼容的训练格式
+3. **格式转换**: 转换为标准训练数据格式
 4. **数据验证**: 验证数据格式和完整性
 5. **数据分割**: 按比例分割训练集和验证集
 
@@ -220,5 +220,5 @@ def custom_configure_training(self):
 
 - v1.0.0 - 初始版本，支持基本的微调流水线
 - 支持自动数据处理和格式转换
-- 集成LLaMA Factory训练框架
+- 集成原生PyTorch训练框架
 - 提供完整的监控和报告功能

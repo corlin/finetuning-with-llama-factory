@@ -250,7 +250,7 @@ class RealDataTester:
             }
             assert "instruction" in direct_format
             assert "output" in direct_format
-            print("✓ LLaMA Factory格式转换通过")
+            print("✓ 标准训练格式转换通过")
             
             # 测试序列化
             example_dict = example.to_dict()

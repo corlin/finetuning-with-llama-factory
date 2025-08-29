@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-将所有增强的QA数据转换为LLaMA Factory训练格式
+将所有增强的QA数据转换为标准训练格式
 包括QA1-QA6的所有thinking数据
 """
 
@@ -124,16 +124,16 @@ class ComprehensiveQAProcessor:
         
         return all_examples
     
-    def convert_to_llama_factory_format(self, examples: List[ThinkingExample]) -> List[Dict]:
-        """转换为LLaMA Factory格式"""
-        return [example.to_llama_factory_format() for example in examples]
+    def convert_to_training_format(self, examples: List[ThinkingExample]) -> List[Dict]:
+        """转换为标准训练格式"""
+        return [example.to_training_format() for example in examples]
     
     def save_training_data(self, examples: List[ThinkingExample], output_dir: str = "data/processed"):
         """保存训练数据"""
         os.makedirs(output_dir, exist_ok=True)
         
-        # 转换为LLaMA Factory格式
-        llama_data = self.convert_to_llama_factory_format(examples)
+        # 转换为标准训练格式
+        training_data = self.convert_to_training_format(examples)
         
         # 保存完整数据集
         full_path = os.path.join(output_dir, "thinking_training_data.json")
@@ -146,7 +146,7 @@ class ComprehensiveQAProcessor:
         difficulty_data = {"BEGINNER": [], "INTERMEDIATE": [], "EXPERT": []}
         
         for example in examples:
-            difficulty_data[example.difficulty].append(example.to_llama_factory_format())
+            difficulty_data[example.difficulty].append(example.to_training_format())
         
         for difficulty, data in difficulty_data.items():
             if data:
@@ -161,7 +161,7 @@ class ComprehensiveQAProcessor:
             source = example.source_file
             if source not in source_data:
                 source_data[source] = []
-            source_data[source].append(example.to_llama_factory_format())
+            source_data[source].append(example.to_training_format())
         
         for source, data in source_data.items():
             source_name = source.replace('.md', '').replace('enhanced_', '')

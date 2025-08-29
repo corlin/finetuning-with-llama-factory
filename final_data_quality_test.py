@@ -212,8 +212,8 @@ def main():
         print(f"      - 长度适中性: {avg_scores['length']:.2f}")
         print(f"      - 综合质量: {avg_scores['overall']:.2f}")
     
-    # 3. 验证LLaMA Factory兼容性
-    print(f"\n3. LLaMA Factory兼容性验证...")
+    # 3. 验证训练格式兼容性
+    print(f"\n3. 训练格式兼容性验证...")
     
     main_file = 'data/processed/thinking_training_data.json'
     try:
@@ -270,7 +270,7 @@ def main():
     else:
         print(f"❌ 高质量样本比例偏低 ({high_quality_ratio:.1%})")
     
-    print(f"\n🎉 数据已准备就绪，可以开始LLaMA Factory微调训练！")
+    print(f"\n🎉 数据已准备就绪，可以开始模型微调训练！")
 
 if __name__ == "__main__":
     main()

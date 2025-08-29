@@ -32,7 +32,7 @@ from config_manager import TrainingConfig, DataConfig, SystemConfig
 from lora_config_optimizer import LoRAMemoryProfile, LoRAOptimizationStrategy
 from parallel_config import ParallelConfig, ParallelStrategy
 from training_pipeline import TrainingPipelineOrchestrator, PipelineStage, PipelineStatus
-# LlamaFactory adapter removed - using direct training engine
+# 使用原生PyTorch训练引擎
 from gpu_utils import GPUDetector
 
 

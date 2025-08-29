@@ -240,7 +240,7 @@ def test_uv_commands():
 
 def main():
     """主测试函数"""
-    print("=== LLaMA Factory Finetuning - uv环境测试 ===")
+    print("=== Qwen3-4B-Thinking 微调系统 - uv环境测试 ===")
     print("测试uv管理的项目环境和依赖")
     print()
     

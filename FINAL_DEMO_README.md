@@ -1,6 +1,6 @@
-# 基于LLaMA Factory的密码学微调演示程序
+# 密码学微调演示程序
 
-这是一个完整的演示程序，展示了如何基于当前已完成的功能，使用 `data/raw` 数据，通过 LLaMA Factory 进行 Qwen3-4B-Thinking 模型微调。
+这是一个完整的演示程序，展示了如何基于当前已完成的功能，使用 `data/raw` 数据进行 Qwen3-4B-Thinking 模型微调。
 
 ## 🎯 演示成果
 
@@ -15,7 +15,7 @@
 - 优化LoRA参数（rank=64, alpha=64）
 
 ✅ **生成完整的训练配置**
-- LLaMA Factory兼容的YAML配置
+- 标准训练配置YAML文件
 - 数据集信息和格式转换
 - 训练脚本和执行指导
 
@@ -84,7 +84,7 @@ final_demo_output/
 ### 配置文件
 ```
 ├── configs/
-│   └── llamafactory_config_*.yaml      # LLaMA Factory配置
+│   └── training_config_*.yaml          # 训练配置文件
 ├── train.py                            # 训练脚本
 └── comprehensive_report_*.json         # 综合分析报告
 ```
@@ -92,9 +92,9 @@ final_demo_output/
 ## 🚀 开始训练
 
 ### 前置条件
-1. 安装 LLaMA Factory
+1. 确保已安装项目依赖
    ```bash
-   pip install llamafactory
+   uv sync --extra dev
    ```
 
 2. 检查CUDA环境（GPU训练）
@@ -106,16 +106,15 @@ final_demo_output/
 
 ### 训练命令
 
-#### 方法1：使用CLI（推荐）
-```bash
-cd final_demo_output
-llamafactory-cli train configs/llamafactory_config_*.yaml
-```
-
-#### 方法2：使用Python脚本
+#### 使用Python脚本（推荐）
 ```bash
 cd final_demo_output
 python train.py
+```
+
+#### 使用项目训练脚本
+```bash
+uv run python scripts/train.py --config final_demo_output/configs/training_config_*.yaml
 ```
 
 ### 监控训练
@@ -208,13 +207,13 @@ uv run python demo_final.py --verbose
 ## 📚 技术文档
 
 ### 相关文档
-- [LLaMA Factory官方文档](https://github.com/hiyouga/LLaMA-Factory)
 - [Qwen模型文档](https://github.com/QwenLM/Qwen)
 - [LoRA微调指南](https://arxiv.org/abs/2106.09685)
+- [PyTorch分布式训练](https://pytorch.org/tutorials/intermediate/ddp_tutorial.html)
 
 ### 项目结构
 ```
-finetune_withlf/
+qwen3-4b-thinking-finetuning/
 ├── src/                    # 核心功能模块
 ├── data/raw/              # 原始训练数据
 ├── demo_*.py              # 演示程序

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-验证LlamaFactory清理和自研训练引擎替换的测试脚本
+验证训练引擎替换的测试脚本
 """
 
 def test_imports():
@@ -33,11 +33,11 @@ def test_imports():
         return False
 
 def test_no_llamafactory_references():
-    """测试是否还有LlamaFactory引用"""
+    """测试是否还有外部框架引用"""
     import os
     import re
     
-    # 检查关键文件中是否还有LlamaFactory引用
+    # 检查关键文件中是否还有外部框架引用
     key_files = [
         "src/training_pipeline.py",
         "demo_final.py", 
@@ -59,7 +59,7 @@ def test_no_llamafactory_references():
                         active_references.append(f"Line {i}: {line.strip()}")
                 
                 if active_references:
-                    print(f"⚠️ {file_path} 中仍有活跃的LlamaFactory引用:")
+    print(f"⚠️ {file_path} 中仍有活跃的外部框架引用:")
                     for ref in active_references:
                         print(f"  {ref}")
                 else:
@@ -67,19 +67,19 @@ def test_no_llamafactory_references():
 
 def main():
     """主测试函数"""
-    print("🧪 开始验证LlamaFactory清理和自研训练引擎替换...")
+    print("🧪 开始验证训练引擎替换...")
     print("=" * 60)
     
     print("\n📦 测试组件导入:")
     imports_ok = test_imports()
     
-    print("\n🔍 检查LlamaFactory引用清理:")
+    print("\n🔍 检查外部框架引用清理:")
     test_no_llamafactory_references()
     
     print("\n" + "=" * 60)
     if imports_ok:
-        print("✅ 所有测试通过！LlamaFactory依赖已成功清理并替换为自研训练引擎")
-        print("🚀 系统已准备好使用自研训练框架进行模型微调")
+        print("✅ 所有测试通过！外部依赖已成功清理并替换为原生训练引擎")
+        print("🚀 系统已准备好使用原生PyTorch框架进行模型微调")
     else:
         print("❌ 部分测试失败，需要进一步修复")
 

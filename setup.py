@@ -14,7 +14,7 @@ sys.path.insert(0, str(project_root / "src"))
 
 def main():
     """主设置函数"""
-    print("=== LLaMA Factory Finetuning 环境设置 ===")
+    print("=== Qwen3-4B-Thinking 微调系统环境设置 ===")
     print("正在初始化Qwen3-4B-Thinking微调环境...")
     print()
     

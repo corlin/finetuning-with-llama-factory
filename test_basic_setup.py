@@ -112,7 +112,7 @@ def test_config_files():
     pyproject_path = Path("pyproject.toml")
     if pyproject_path.exists():
         content = pyproject_path.read_text(encoding='utf-8')
-        if "llama-factory-finetuning" in content:
+        if "qwen3-4b-thinking-finetuning" in content:
             print("✓ pyproject.toml 配置正确")
         else:
             print("❌ pyproject.toml 配置有误")
@@ -171,7 +171,7 @@ def test_basic_functionality():
 
 def main():
     """主测试函数"""
-    print("=== LLaMA Factory Finetuning 基础设置测试 ===")
+    print("=== Qwen3-4B-Thinking 微调系统基础设置测试 ===")
     print()
     
     tests = [

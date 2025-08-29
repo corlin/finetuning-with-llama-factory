@@ -203,8 +203,8 @@ def test_enhanced_qa_files():
         print(f"⭐ 高质量样例: {overall_stats['high_quality_examples']} 个")
         print(f"🎯 整体质量分数: {overall_stats['avg_validation_score']:.2f}")
         
-        # 转换为LLaMA Factory格式示例
-        print("\n=== LLaMA Factory格式示例 ===")
+        # 转换为标准训练格式示例
+        print("\n=== 标准训练格式示例 ===")
         if all_examples:
             sample_example = all_examples[0]
             direct_format = sample_example.to_direct_training_format()
@@ -222,6 +222,6 @@ if __name__ == "__main__":
     if examples:
         print(f"\n🎉 成功处理 {len(examples)} 个增强QA样例！")
         print("✅ 所有样例都包含完整的thinking过程")
-        print("✅ 数据格式符合LLaMA Factory训练要求")
+        print("✅ 数据格式符合标准训练要求")
     else:
         print("\n❌ 未找到有效的增强QA数据")
