@@ -236,7 +236,17 @@ class ModelEvaluator:
         self.model.eval()
     
     def generate_answer(self, question: str, context: str = "", max_length: int = 256) -> str:
-        """使用模型生成答案 (修复版)"""
+        """
+        使用模型生成答案 (修复版)
+        
+        Args:
+            question: 输入问题
+            context: 可选的上下文信息
+            max_length: 生成答案的最大长度，默认256
+            
+        Returns:
+            生成的答案文本
+        """
         try:
             # 构建prompt
             if context:
@@ -262,8 +272,8 @@ class ModelEvaluator:
                     **inputs,
                     max_new_tokens=max_length,
                     do_sample=True,
-                    temperature=0.7,
-                    top_p=0.9,
+                    temperature=0.01,
+                    top_p=0.8,
                     pad_token_id=self.tokenizer.pad_token_id,
                     eos_token_id=self.tokenizer.eos_token_id,
                     repetition_penalty=1.1
@@ -767,9 +777,19 @@ class ComprehensiveDemo:
         checkpoint_path: str = "qwen3_4b_thinking_output/final_model",
         base_model_path: str = "Qwen/Qwen3-4B-Thinking-2507",
         qa_data_dir: str = "data/raw",
-        max_qa_items: int = 300  # 限制QA项目数量以便演示
+        max_qa_items: int = 300,  # 限制QA项目数量以便演示
+        max_length: int = 1024  # 模型生成的最大长度，默认1024
     ):
-        """运行完整的pipeline (修复版)"""
+        """
+        运行完整的pipeline (修复版)
+        
+        Args:
+            checkpoint_path: LoRA checkpoint路径
+            base_model_path: 基座模型路径
+            qa_data_dir: QA数据目录
+            max_qa_items: 最大QA项目数量，用于演示限制
+            max_length: 模型生成答案的最大长度，默认1024
+        """
         
         try:
             logger.info("🎯 开始执行完整的Checkpoint合并与专家评估流程 (修复版)")
@@ -818,6 +838,7 @@ class ComprehensiveDemo:
             # 步骤3: 生成模型答案
             logger.info("\n" + "="*60)
             logger.info("📋 步骤3: 使用合并后的模型生成答案")
+            logger.info(f"🔧 生成参数: max_length={max_length}")
             logger.info("="*60)
             
             model_answers = []
@@ -832,7 +853,7 @@ class ComprehensiveDemo:
                         answer = model_evaluator.generate_answer(
                             question=qa_item["question"],
                             context=qa_item.get("context", ""),
-                            max_length=200
+                            max_length=max_length
                         )
                         model_answers.append(answer)
                         
@@ -919,29 +940,48 @@ class ComprehensiveDemo:
 
 def main():
     """主函数"""
+    import argparse
+    
+    # 添加命令行参数解析
+    parser = argparse.ArgumentParser(description="Checkpoint合并与专家评估完整演示 (修复版)")
+    parser.add_argument("--max-length", type=int, default=1024, 
+                       help="模型生成的最大长度 (默认: 1024)")
+    parser.add_argument("--checkpoint-path", type=str, 
+                       default="qwen3_4b_thinking_output/final_model",
+                       help="Checkpoint路径")
+    parser.add_argument("--qa-data-dir", type=str, default="data/raw",
+                       help="QA数据目录")
+    parser.add_argument("--max-qa-items", type=int, default=300,
+                       help="最大QA项目数量")
+    
+    args = parser.parse_args()
     
     print("🚀 Checkpoint合并与专家评估完整演示 (修复版)")
     print("=" * 60)
+    print(f"📊 配置参数:")
+    print(f"   - 最大生成长度: {args.max_length}")
+    print(f"   - Checkpoint路径: {args.checkpoint_path}")
+    print(f"   - QA数据目录: {args.qa_data_dir}")
+    print(f"   - 最大QA项目数: {args.max_qa_items}")
+    print("=" * 60)
     
     # 检查必要的路径
-    checkpoint_path = "qwen3_4b_thinking_output/final_model"
-    qa_data_dir = "data/raw"
-    
-    if not Path(checkpoint_path).exists():
-        logger.error(f"❌ Checkpoint路径不存在: {checkpoint_path}")
+    if not Path(args.checkpoint_path).exists():
+        logger.error(f"❌ Checkpoint路径不存在: {args.checkpoint_path}")
         return
     
-    if not Path(qa_data_dir).exists():
-        logger.error(f"❌ QA数据目录不存在: {qa_data_dir}")
+    if not Path(args.qa_data_dir).exists():
+        logger.error(f"❌ QA数据目录不存在: {args.qa_data_dir}")
         return
     
     try:
         # 创建并运行演示
         demo = ComprehensiveDemo()
         demo.run_complete_pipeline(
-            checkpoint_path=checkpoint_path,
-            qa_data_dir=qa_data_dir,
-            max_qa_items=300  # 限制为5个QA项目以便快速演示
+            checkpoint_path=args.checkpoint_path,
+            qa_data_dir=args.qa_data_dir,
+            max_qa_items=args.max_qa_items,
+            max_length=args.max_length
         )
         
     except KeyboardInterrupt:
